@@ -1,0 +1,1 @@
+nextflow run trainUNet.nf -c ../utils/nextflow.config --profiles local -resume
