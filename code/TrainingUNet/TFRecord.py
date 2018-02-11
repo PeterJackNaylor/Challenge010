@@ -47,7 +47,6 @@ if __name__ == '__main__':
     parser.add_option('--split', dest="split", type="str")
     parser.add_option('--unet', dest="unet", type="int")
     parser.add_option('--seed', dest="seed", type="int")
-    parser.add_option('--epoch', dest="epoch", type="int")
     (options, args) = parser.parse_args()
 
     OUTNAME = options.TFRecord
@@ -61,7 +60,6 @@ if __name__ == '__main__':
     var_hsv = [0.2, 0.15]
     UNET = True if options.unet == 1 else False
     SEED = options.seed
-    N_EPOCH = options.epoch
     
 
     t_l, t_l_t = ListTransform(n_elastic=0, 
@@ -72,5 +70,5 @@ if __name__ == '__main__':
 
 
     CreateTFRecord(OUTNAME, PATH, TEST, SIZE,
-                   t_l, UNET, SEED, N_EPOCH,
+                   t_l, UNET, SEED,
                    SPLIT=SPLIT)

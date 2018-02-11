@@ -48,14 +48,13 @@ def LoadRGB_GT_QUEUE(imgpath, dic, stepSize, windowSize, unet):
 
 
 def CreateTFRecord(OUTNAME, PATH, FOLD_TEST, SIZE,
-                   TRANSFORM_LIST, UNET, SEED, N_EPOCH,
+                   TRANSFORM_LIST, UNET, SEED,
                    SPLIT="train"):
 
     tfrecords_filename = OUTNAME
     writer = tf.python_io.TFRecordWriter(tfrecords_filename)
 
     images, dic_gt = GatherFiles(PATH, FOLD_TEST, SPLIT)
-    N_ITER_MAX = N_EPOCH * len(images)
     original_images = []
     n_samples = 0
     for img_path in images:
