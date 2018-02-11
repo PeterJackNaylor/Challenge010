@@ -33,7 +33,7 @@ process CreateRecords {
     """
     python $py --tf_record ${params.name}.tfrecords --path $path \\
                --test $test --size_train ${params.size} --unet ${params.unet_like} \\
-               --seed 42 --epoch ${epoch} --split train
+               --seed 42 --split train
     """
 }
 
@@ -66,8 +66,8 @@ else {
 process TrainModel {
     publishDir "../../intermediary_files/Training/${params.name}", overwrite:true
     if( params.real == 1 ) {
-        beforeScript "source $home/CUDA_LOCK/.whichNODE"
-        afterScript "source $home/CUDA_LOCK/.freeNODE"
+        beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
+        afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
         maxfork 2
     }
     input:
