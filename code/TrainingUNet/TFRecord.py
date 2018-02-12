@@ -70,5 +70,4 @@ if __name__ == '__main__':
 
 
     CreateTFRecord(OUTNAME, PATH, TEST, SIZE,
-                   t_l, UNET, SEED,
-                   SPLIT=SPLIT)
+                   t_l, UNET, SEED, SPLIT=SPLIT)

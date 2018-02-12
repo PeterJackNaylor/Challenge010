@@ -68,7 +68,7 @@ process TrainModel {
     if( params.real == 1 ) {
         beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
         afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
-        maxfork 2
+        maxForks 2
     }
     input:
     file py from MODEL
