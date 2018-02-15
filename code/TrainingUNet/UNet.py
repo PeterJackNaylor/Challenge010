@@ -124,7 +124,6 @@ class Model(UNetBatchNorm):
 
         for step in range(steps):      
             # self.optimizer is replaced by self.training_op for the exponential moving decay
-            print "train", step
             _, l, lr, predictions, batch_labels, s = self.sess.run(
                         [self.training_op, self.loss, self.learning_rate,
                          self.train_prediction, self.train_labels_node,
@@ -191,9 +190,10 @@ if __name__== "__main__":
     LEARNING_RATE = options.lr
     BATCH_SIZE = options.bs
     SIZE = (options.size_train, options.size_train)
-    N_ITER_MAX = 10 ## defined later
+    samples_per_epoch = len([0 for record in tf.python_io.tf_record_iterator(options.TFRecord)] )
+    N_ITER_MAX = options.epoch * samples_per_epoch // BATCH_SIZE ## defined later
     LRSTEP = "10epoch"
-    N_TRAIN_SAVE = 1
+    N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE
     LOG = options.log
     WEIGHT_DECAY = options.wd 
     N_FEATURES = options.nfeat
