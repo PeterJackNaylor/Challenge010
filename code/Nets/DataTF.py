@@ -31,7 +31,8 @@ class DataReader(ConvolutionalNeuralNetwork):
         N_EPOCH=1,
         N_THREADS=1,
         MEAN_FILE=None,
-        DROPOUT=0.5):
+        DROPOUT=0.5,
+        EARLY_STOPPING=10):
 
         self.LEARNING_RATE = LEARNING_RATE
         self.K = K
@@ -71,10 +72,19 @@ class DataReader(ConvolutionalNeuralNetwork):
         self.init_vars()
         self.init_model_architecture()
         self.init_training_graph()
+        self.early_stopping_max = EARLY_STOPPING
         self.Saver()
         self.DEBUG = DEBUG
         self.loss_func = LOSS_FUNC
         self.weight_decay = WEIGHT_DECAY
+
+    def Saver(self):
+        print("Setting up Saver...")
+        self.saver = tf.train.Saver(max_to_keep=(self.early_stopping_max + 1))
+        ckpt = tf.train.get_checkpoint_state(self.LOG)
+        if ckpt and ckpt.model_checkpoint_path:
+            self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+            print("Model restored...")
 
     def init_queue(self, tfrecords_filename):
         self.filename_queue = tf.train.string_input_producer(
@@ -143,6 +153,17 @@ class DataReader(ConvolutionalNeuralNetwork):
             print('  Validation loss: %.1f' % l)
             print('       Accuracy: %1.f%% \n       acc1: %.1f%% \n       recall: %1.f%% \n       prec: %1.f%% \n       f1 : %1.f%% \n' % (acc * 100, meanacc * 100, recall * 100, precision * 100, F1 * 100))
             self.saver.save(self.sess, self.LOG + '/' + "model.ckpt", step)
+
+
+    def early_stopping(self, data_res, variable_name):
+        vec_values = np.array(data_res[variable_name])
+        if len(vec_values) > self.early_stopping_max:
+            val_to_beat = vec_values[-(self.early_stopping_max + 1)]
+            values_to_check = vec_values[-self.early_stopping_max:]
+            return (val_to_beat > values_to_check).all()
+        else:
+            return False
+
 
     def train(self, DG_TEST=None):
 

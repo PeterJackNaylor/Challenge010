@@ -94,6 +94,35 @@ process FuseTable {
     """
 }
 
+process OverlayRGB_GT {
+    publishDir "../../intermediary_files/Data/Overlay", overwrite: true
+    input:
+    file train_tab from DESC_TAB
+    output:
+    file "*.png" into Overlay
+    """
+    #!/usr/bin/env python
+    from pandas import read_csv, concat
+    from Data.patch_img import Overlay
+    from skimage.io import imsave
+    from os.path import basename
+
+    train = read_csv('$train_tab', index_col=0)
+    def f(row):
+        path_rgb = row['path_to_image']
+        mask_name = row['path_to_label']
+        if row['BlackBackGround'] == 1:
+            black = False
+        else:
+            black = True
+        overlay_rgb = basename(mask_name).replace('mask', 'overlay')
+        imsave(overlay_rgb, Overlay(path_rgb, mask_name, black))
+
+    train.apply(lambda row: f(row), axis=1)
+    """
+}
+
+
 UNET_MAKE_DATA = file("UNet_Data_Prep.py")
 SPLITS = 3
 

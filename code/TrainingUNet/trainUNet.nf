@@ -60,7 +60,7 @@ else {
     LEARNING_RATE = [0.01, 0.001]
     WEIGHT_DECAY = [0.0005]
     N_FEATURES = [16]
-    BATCH_SIZE = 16
+    BATCH_SIZE = 1
 }
 
 process TrainModel {

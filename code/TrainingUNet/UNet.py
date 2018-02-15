@@ -14,7 +14,7 @@ from datetime import datetime
 import pdb
 from optparse import OptionParser
 import pandas as pd
-
+import os
 
 class Model(UNetBatchNorm):
     def test(self, p1, p2, steps):
@@ -48,8 +48,8 @@ class Model(UNetBatchNorm):
         jac, AJI = np.array([jac, AJI]) / steps
         return loss, acc, F1, recall, precision, roc, jac, AJI
 
-    def Validation(self, list_img, dic, step):
-        l, acc, F1, recall, precision, meanacc = 0., 0., 0., 0., 0., 0.
+    def Validation(self, list_img, dic, step, early_stoping_max=10):
+        l, acc, F1, recall, precision, meanacc = [], [], [], [], [], []
         for img_path in list_img:
             img = imread(img_path)[:,:,0:3].astype("float")
             img -= self.MEAN_NPY
@@ -66,16 +66,19 @@ class Model(UNetBatchNorm):
             l_tmp, acc_tmp, F1_tmp, recall_tmp, precision_tmp, meanacc_tmp, s = self.sess.run([self.loss, 
                                                                                         self.accuracy, self.F1,
                                                                                         self.recall, self.precision,
-                                                                                        self.MeanAcc,
-                                                                                        self.merged_summary], feed_dict=feed_dict)
-            l += l_tmp
-            acc += acc_tmp
-            F1 += F1_tmp
-            recall += recall_tmp
-            precision += precision_tmp
-            meanacc += meanacc_tmp
-
-        l, acc, F1, recall, precision, meanacc = np.array([l, acc, F1, recall, precision, meanacc]) / len(list_img)
+                                                                                        self.MeanAcc, self.merged_summary], feed_dict=feed_dict)
+            l.append(l_tmp)
+            acc.append(acc_tmp)
+            F1.append(F1_tmp)
+            recall.append(recall_tmp)
+            precision.append(precision_tmp)
+            meanacc.append(meanacc_tmp)
+        l = np.mean([el if not math.isnan(el)else 0. for el in l])
+        acc = np.mean([el if not math.isnan(el)else 0. for el in acc])
+        F1 = np.mean([el if not math.isnan(el) else 0. for el in F1])
+        recall = np.mean([el if not math.isnan(el) else 0. for el in recall])
+        precision = np.mean([el if not math.isnan(el) else 0. for el in precision])
+        meanacc = np.mean([el if not math.isnan(el) else 0.5 for el in meanacc])
 
         summary = tf.Summary()
         summary.value.add(tag="TestMan/Accuracy", simple_value=acc)
@@ -129,6 +132,7 @@ class Model(UNetBatchNorm):
 
             if step % self.N_PRINT == 0:
                 if step != 0:
+                    print data_res
                     i = datetime.now()
                     print i.strftime('%Y/%m/%d %H:%M:%S: \n ')
                     self.summary_writer.add_summary(s, step)                
@@ -145,6 +149,11 @@ class Model(UNetBatchNorm):
                     data_res.loc[step, "precision"] = precision
                     data_res.loc[step, "meanacc"] = meanacc
                     data_res.loc[step, "wgt_path"] = abspath(wgt_path)
+                    if self.early_stopping(data_res, "F1"):
+                        best_wgt = np.array(data_res["wgt_path"])[-(self.early_stopping_max + 1)]
+                        os.symlink(best_wgt, self.LOG + '/' + "model.ckpt-{}".format(step+10))
+                        break
+
 
         coord.request_stop()
         coord.join(threads)
@@ -184,7 +193,7 @@ if __name__== "__main__":
     SIZE = (options.size_train, options.size_train)
     N_ITER_MAX = 10 ## defined later
     LRSTEP = "10epoch"
-    N_TRAIN_SAVE = 2
+    N_TRAIN_SAVE = 1
     LOG = options.log
     WEIGHT_DECAY = options.wd 
     N_FEATURES = options.nfeat
@@ -208,7 +217,8 @@ if __name__== "__main__":
                                        N_EPOCH=N_EPOCH,
                                        N_THREADS=N_THREADS,
                                        MEAN_FILE=MEAN_FILE,
-                                       DROPOUT=0.5)
+                                       DROPOUT=0.5,
+                                       EARLY_STOPPING=3)
     if SPLIT == "train":
         list_img, dic = GatherFiles(options.path, options.test, "test")
         output_name = LOG + ".csv"

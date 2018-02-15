@@ -4,6 +4,8 @@ import numpy as np
 import pdb
 import os
 from os.path import abspath, basename, join
+from scipy.ndimage.morphology import morphological_gradient
+from utils.random_utils import generate_wsl
 
 def fuse(el, dic):
     """
@@ -25,15 +27,11 @@ def meta_data_test(el, empty_dic):
         x, y = img.shape[0:3]
         z = 1
 
-
-
     empty_dic.loc[basename(el), "path_to_image"] = abspath(el)
     empty_dic.loc[basename(el), "type"] = img.dtype
     empty_dic.loc[basename(el), "shape_x"] = x
     empty_dic.loc[basename(el), "shape_y"] = y
     empty_dic.loc[basename(el), "shape_z"] = z
-
-
 
     mean = np.zeros(z, dtype=float)
     for i in range(z):
@@ -103,3 +101,21 @@ def split_into_domain(table):
         os.symlink(src, dest)
 
     table.apply(lambda row: symlink_copy_to_folder(row), axis=1)    
+
+def Contours(bin_image, contour_size=3):
+    # Computes the contours
+    grad = morphological_gradient(bin_image, size=(contour_size, contour_size))
+    return grad
+
+def Overlay(rgb, binary_image, black=True):
+    res = imread(rgb)[:,:,0:3]
+    mask = imread(binary_image)
+    line = generate_wsl(mask)
+    mask[mask > 0] = 1
+    mask[line > 0] = 0
+    mask = Contours(mask)
+    if black: 
+        res[mask > 0] = np.array([0, 0, 0])
+    else:
+        res[mask > 0] = np.array([255, 255, 255])
+    return res
