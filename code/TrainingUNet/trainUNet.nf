@@ -53,8 +53,8 @@ process Meanfile {
 if( params.real == 1 ) {
     LEARNING_RATE = [0.01, 0.001, 0.0001, 0.00001]
     WEIGHT_DECAY = [0.0005, 0.00005]
-    N_FEATURES = [16, 32, 64]
-    BATCH_SIZE = 16
+    N_FEATURES = [16, 32]
+    BATCH_SIZE = 10
 }
 else {
     LEARNING_RATE = [0.01, 0.001]
@@ -68,7 +68,7 @@ process TrainModel {
     if( params.real == 1 ) {
         beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
         afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
-        maxForks 2
+        maxForks 1
     }
     input:
     file py from MODEL

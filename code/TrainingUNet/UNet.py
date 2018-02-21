@@ -131,7 +131,6 @@ class Model(UNetBatchNorm):
 
             if step % self.N_PRINT == 0:
                 if step != 0:
-                    print data_res
                     i = datetime.now()
                     print i.strftime('%Y/%m/%d %H:%M:%S: \n ')
                     self.summary_writer.add_summary(s, step)                
@@ -218,7 +217,7 @@ if __name__== "__main__":
                                        N_THREADS=N_THREADS,
                                        MEAN_FILE=MEAN_FILE,
                                        DROPOUT=0.5,
-                                       EARLY_STOPPING=3)
+                                       EARLY_STOPPING=10)
     if SPLIT == "train":
         list_img, dic = GatherFiles(options.path, options.test, "test")
         output_name = LOG + ".csv"
