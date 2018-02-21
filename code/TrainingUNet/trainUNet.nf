@@ -3,6 +3,7 @@
 params.input_f = "../../intermediary_files/Data/UNetData/data_unet"
 params.epoch = 1
 params.model = "UNet.py"
+params.predict = "UNetTest.py"
 params.size = 212
 params.unet_like = 1
 params.name = "UNet"
@@ -14,7 +15,9 @@ INPUT_F = file(params.input_f)
 FOLDS_POSSIBLE = file(FOLDS_PATH_GLOB, type: 'dir', followLinks: true)
 NUMBER_OF_FOLDS = FOLDS_POSSIBLE.size() - 1
 MODEL = file(params.model)
+MODEL_PRED = file(params.predict)
 MINI_EPOCH = 1
+INPUT_TEST = file("../../dataset/stage1_test/*/images/*.png")
 
 // mini epoch is to take advantage of my img deformation and of a cluster
 // unet_like is just in case i need to tweet the CreateRecord
@@ -80,13 +83,48 @@ process TrainModel {
     each wd from WEIGHT_DECAY
     each nfeat from N_FEATURES
     output:
-    file "${params.name}__${lr}__${wd}__${nfeat}__fold-${test}" into LOG_FOLDER
-    file "${params.name}__${lr}__${wd}__${nfeat}__fold-${test}.csv" into CSV_FOLDER
+    set val("${params.name}__${lr}__${wd}__${nfeat}"), file("${params.name}__${lr}__${wd}__${nfeat}__fold-${test}") into LOG_FOLDER
+    set val("${params.name}__${lr}__${wd}__${nfeat}"), file("${params.name}__${lr}__${wd}__${nfeat}__fold-${test}.csv") into CSV_FOLDER
 
     """
     python $py --tf_record $rec --path $path --size_train ${params.size} --mean_file $mean_array \\
                --log ${params.name}__${lr}__${wd}__${nfeat}__fold-${test} --split train --epoch ${params.epoch} \\
                --batch_size $bs --learning_rate $lr --weight_decay $wd --n_features $nfeat --test $test
+    """
+
+}
+
+
+process PickBestModel {
+    publishDir "../../intermediary_files/Training/${params.name}/Final", overwrite:true
+    input:
+    set _, file(csv) from CSV_FOLDER .collect()
+    output:
+    file "*.txt" into HyperParameters
+    """
+
+    """
+}
+
+process PredictTestSet {
+    publishDir "../../intermediary_files/Training/${params.name}/Final", overwrite:true
+    if( params.real == 1 ) {
+        beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
+        afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
+        maxForks 2
+    }
+    input:
+    file py from MODEL_TEST
+    file all from INPUT_TEST .collect()
+    file mean_array from MEAN_ARRAY
+
+    output:
+    set  into LOG_FOLDER
+
+    """
+    python $py --mean_file $mean_array \\
+               --log ${params.name}__${lr}__${wd}__${nfeat}__fold-${test} \\
+               --n_features $nfeat
     """
 
 }
