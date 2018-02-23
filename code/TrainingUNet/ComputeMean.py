@@ -1,6 +1,6 @@
 from optparse import OptionParser
 from skimage.io import imread
-from utils.UsefulFunctionsCreateRecord import GatherFiles
+from utils.FileCollector import GatherFiles
 import numpy as np
 import pdb
 

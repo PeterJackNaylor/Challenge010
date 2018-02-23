@@ -32,7 +32,9 @@ COMPUTE_MEAN = file("ComputeMean.py")
 
 process CreateRecords {
     clusterOptions "-S /bin/bash"
-
+    if( params.thalassa == 1 ){
+        env.PYTHONPATH "`dirname $PWD`:$PYTHONPATH"
+    }
     input:
     file py from TFRECORDS
     file path from INPUT_F
@@ -41,11 +43,24 @@ process CreateRecords {
 
     output:
     set val("$test"), file("${params.name}.tfrecords") into TrainRecords
-    """
-    python $py --tf_record ${params.name}.tfrecords --path $path \\
-               --test $test --size_train ${params.size} --unet ${params.unet_like} \\
-               --seed 42 --split train
-    """
+    script:
+    if( params.thalassa == 0 ){
+        """
+        python $py --tf_record ${params.name}.tfrecords --path $path \\
+                   --test $test --size_train ${params.size} --unet ${params.unet_like} \\
+                   --seed 42 --split train
+        """
+    } else {
+        """
+        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
+        function pyglib {
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+        }
+        pyglib $py --tf_record ${params.name}.tfrecords --path $path \\
+                   --test $test --size_train ${params.size} --unet ${params.unet_like} \\
+                   --seed 42 --split train
+        """
+    }
 }
 
 
@@ -114,9 +129,8 @@ process TrainModel {
     }
     else {
         """
-        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
         function pyglib {
-            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/bin/python \$@
         }
         pyglib $py --tf_record $rec --path $path --size_train ${params.size} --mean_file $mean_array \\
                    --log ${params.name}__${lr}__${wd}__${nfeat}__fold-${test} --split train --epoch ${params.epoch} \\
