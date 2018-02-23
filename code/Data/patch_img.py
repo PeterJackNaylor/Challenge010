@@ -119,3 +119,16 @@ def Overlay(rgb, binary_image, black=True):
     else:
         res[mask > 0] = np.array([255, 255, 255])
     return res
+
+def Overlay_with_pred(rgb, pred_image, black=True):
+    res = imread(rgb)[:,:,0:3]
+    mask = pred_image
+    line = generate_wsl(mask)
+    mask[mask > 0] = 1
+    mask[line > 0] = 0
+    mask = Contours(mask)
+    if black: 
+        res[mask > 0] = np.array([0, 0, 0])
+    else:
+        res[mask > 0] = np.array([255, 255, 255])
+    return res
