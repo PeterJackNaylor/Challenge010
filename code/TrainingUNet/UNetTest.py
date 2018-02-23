@@ -39,7 +39,7 @@ if __name__== "__main__":
     P1, P2 = GetHP(options.hp)
     MEAN_FILE = options.mean_file 
     outcsv = options.output_csv
-    FILES = glob('*.png')[0:3]
+    FILES = glob('*.png')
     MODELS = glob(options.name + "__fold*")
     dic = {__:[] for __ in FILES}
 
