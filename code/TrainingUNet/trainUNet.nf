@@ -65,7 +65,7 @@ process Meanfile {
 if( params.real == 1 ) {
     LEARNING_RATE = [0.01, 0.001, 0.0001, 0.00001]
     WEIGHT_DECAY = [0.0005, 0.00005]
-    N_FEATURES = [16, 32]
+    N_FEATURES = [16, 32, 64]
     BATCH_SIZE = 10
 }
 else {
@@ -153,7 +153,7 @@ process FindingP1P2 {
     input:
     file name from NAME_
     file(log) from BEST_G_LOG .collect()
-    file(csv) from BEST_G_CSV .collect()
+    file(csv) from BEST_G_CSV .collect() // Not needed, because of fix in train symlink
     file path from INPUT_F
     file py from MODEL_VALID
     file mean_array from MEAN_ARRAY

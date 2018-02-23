@@ -106,8 +106,7 @@ if __name__== "__main__":
                                MEAN_FILE=MEAN_FILE)
         number_test = int(mod.split('-')[-1])
         test_images, dic_test_gt = GatherFiles(options.path, number_test, split="test")
-        test_images = test_images[0:10]
-        print "only doing 10"
+        test_images = test_images
         test_img_all += test_images
         dic_test_gt_all = dict(dic_test_gt_all, **dic_test_gt)
 
