@@ -9,7 +9,7 @@ from utils.ImageTransform import flip_horizontal, flip_vertical
 from utils.random_utils import sliding_window, UNetAugment
 import math
 import scipy.stats as st
-
+from FileCollector import GatherFiles
 
 def _bytes_feature(value):
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
