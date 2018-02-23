@@ -32,9 +32,6 @@ COMPUTE_MEAN = file("ComputeMean.py")
 
 process CreateRecords {
     clusterOptions "-S /bin/bash"
-    if( params.thalassa == 1 ){
-        env.PYTHONPATH "`dirname $PWD`:$PYTHONPATH"
-    }
     input:
     file py from TFRECORDS
     file path from INPUT_F
@@ -97,13 +94,12 @@ process TrainModel {
     if( params.real == 1 ) {
         beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
         afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
-        maxForks 1
-    }
-    else {
-        maxForks 1
     }
     if( params.thalassa == 1 ){
         queue "cuda.q"
+        maxForks 2    
+    } else {
+        maxForks 1
     }
 
     input:
