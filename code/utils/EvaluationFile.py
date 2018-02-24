@@ -17,15 +17,31 @@ def summarise_line(array):
         string_result += str(min_coords) + " " + str(size) + " "
     return string_result
 
+def rle_encoding(x):
+    '''
+    x: numpy array of shape (height, width), 1 - mask, 0 - background
+    Returns run length as list
+    '''
+    dots = np.where(x.T.flatten()==1)[0] # .T sets Fortran order down-then-right
+    run_lengths = []
+    prev = -2
+    for b in dots:
+        if (b>prev+1): run_lengths.extend((b+1, 0))
+        run_lengths[-1] += 1
+        prev = b
+    return run_lengths
+
 def WriteEvaluation(name, dic):
     f = open(name, 'w')
     f.write("ImageId,EncodedPixels\n")
     for key in dic.keys():
         img_lab = label(dic[key]) .flatten()
         for i in range(1, img_lab.max() + 1):
-            one_nuclei = img_lab.copy()
-            one_nuclei[one_nuclei != i] = 0
-            one_nuclei[one_nuclei == i] = 1
-            encoding_pixel = summarise_line(one_nuclei)
+            # one_nuclei = img_lab.copy()
+            # one_nuclei[one_nuclei != i] = 0
+            # one_nuclei[one_nuclei == i] = 1
+            # encoding_pixel = summarise_line(one_nuclei)
+            encoding_pixel = rle_encoding(img_lab==i)
+            pdb.set_trace()
             f.write('{},{}\n'.format(key.replace('.png', ''), encoding_pixel))
     f.close()

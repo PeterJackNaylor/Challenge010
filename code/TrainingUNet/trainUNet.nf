@@ -32,7 +32,6 @@ COMPUTE_MEAN = file("ComputeMean.py")
 
 process CreateRecords {
     clusterOptions "-S /bin/bash"
-
     input:
     file py from TFRECORDS
     file path from INPUT_F
@@ -41,11 +40,24 @@ process CreateRecords {
 
     output:
     set val("$test"), file("${params.name}.tfrecords") into TrainRecords
-    """
-    python $py --tf_record ${params.name}.tfrecords --path $path \\
-               --test $test --size_train ${params.size} --unet ${params.unet_like} \\
-               --seed 42 --split train
-    """
+    script:
+    if( params.thalassa == 0 ){
+        """
+        python $py --tf_record ${params.name}.tfrecords --path $path \\
+                   --test $test --size_train ${params.size} --unet ${params.unet_like} \\
+                   --seed 42 --split train
+        """
+    } else {
+        """
+        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
+        function pyglib {
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+        }
+        pyglib $py --tf_record ${params.name}.tfrecords --path $path \\
+                   --test $test --size_train ${params.size} --unet ${params.unet_like} \\
+                   --seed 42 --split train
+        """
+    }
 }
 
 
@@ -65,7 +77,7 @@ process Meanfile {
 if( params.real == 1 ) {
     LEARNING_RATE = [0.01, 0.001, 0.0001, 0.00001]
     WEIGHT_DECAY = [0.0005, 0.00005]
-    N_FEATURES = [16, 32]
+    N_FEATURES = [16, 32, 64]
     BATCH_SIZE = 10
 }
 else {
@@ -82,13 +94,12 @@ process TrainModel {
     if( params.real == 1 ) {
         beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
         afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
-        maxForks 1
-    }
-    else {
-        maxForks 1
     }
     if( params.thalassa == 1 ){
         queue "cuda.q"
+        maxForks 2    
+    } else {
+        maxForks 1
     }
 
     input:
@@ -114,9 +125,8 @@ process TrainModel {
     }
     else {
         """
-        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
         function pyglib {
-            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/bin/python \$@
         }
         pyglib $py --tf_record $rec --path $path --size_train ${params.size} --mean_file $mean_array \\
                    --log ${params.name}__${lr}__${wd}__${nfeat}__fold-${test} --split train --epoch ${params.epoch} \\
@@ -153,7 +163,7 @@ process FindingP1P2 {
     input:
     file name from NAME_
     file(log) from BEST_G_LOG .collect()
-    file(csv) from BEST_G_CSV .collect()
+    file(csv) from BEST_G_CSV .collect() // Not needed, because of fix in train symlink
     file path from INPUT_F
     file py from MODEL_VALID
     file mean_array from MEAN_ARRAY

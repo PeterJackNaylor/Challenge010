@@ -1,8 +1,8 @@
+import sys; print sys.path
 from utils.UsefulFunctionsCreateRecord import CreateTFRecord
 from utils.ImageTransform import Identity, Flip, Rotation, OutOfFocus, ElasticDeformation, HE_Perturbation, HSV_Perturbation
 import numpy as np
 from optparse import OptionParser
-
 
 
 def ListTransform(n_rot=4, n_elastic=50, n_he=50, n_hsv = 50,
