@@ -42,6 +42,6 @@ def WriteEvaluation(name, dic):
             # one_nuclei[one_nuclei == i] = 1
             # encoding_pixel = summarise_line(one_nuclei)
             encoding_pixel = rle_encoding(img_lab==i)
-            pdb.set_trace()
-            f.write('{},{}\n'.format(key.replace('.png', ''), encoding_pixel))
+            encoding_pixel_string = [str(el) for el in encoding_pixel]
+            f.write('{},{}\n'.format(key.replace('.png', ''), " ".join(encoding_pixel_string)))
     f.close()
