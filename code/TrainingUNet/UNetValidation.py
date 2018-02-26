@@ -64,7 +64,7 @@ def ComputeScores(list_rgb, dic_gt, dic_prob,
         res_F1.append(ComputeF1(GT, S))
         scores, p_s, TP, FN, FP = DataScienceBowlMetrics(GT, S)
         res_DSB.append(scores)
-        res_ps.append(ps)
+        res_ps.append(p_s)
         res_TP.append(TP)
         res_FN.append(FN)
         res_FP.append(FP)
@@ -117,7 +117,6 @@ if __name__== "__main__":
                                MEAN_FILE=MEAN_FILE)
         number_test = int(mod.split('-')[-1])
         test_images, dic_test_gt = GatherFiles(options.path, number_test, split="test")
-        test_images = test_images
         test_img_all += test_images
         dic_test_gt_all = dict(dic_test_gt_all, **dic_test_gt)
 
@@ -129,17 +128,17 @@ if __name__== "__main__":
     HP_dic = {}
     for p1 in P1_List:
         for p2 in P2_list:
-            HP_dic[(p1, p2)] = ComputeScores(test_img_all, dic_test_gt_all, dic_pred, p1, p2)[0]
-    
+            HP_dic[(p1, p2)] = ComputeScores(test_img_all, dic_test_gt_all, dic_pred, p1, p2)
     tab = pd.DataFrame.from_dict(HP_dic, orient='index')
+    tab.columns = ['AJI', 'F1', 'DSB']
     tab.to_csv('Hyper_parameter_selection.csv')
-    P1, P2 = tab[0].idxmax()
+    P1, P2 = tab["DSB"].idxmax()
     CheckOrCreate(options.output)
     aji__, f1__, DSB__, ps__, tp__, fn__, fp__ = ComputeScores(test_img_all, dic_test_gt_all, dic_pred, p1, p2, True, options.output)
     ps__, tp__, fn__, fp__ = [np.array(el) for el in [ps__, tp__, fn__, fp__]]
     pathsss = [join(options.output, basename(path).replace('.png', '')) for path in test_img_all]
-    df_dic = {'path':pathsss, 'F1':f1__, 'AJI':aji__}
-    for k, t in enumerate(range(0.5, 1, 0.05)):
+    df_dic = {'path':pathsss, 'F1':f1__, 'AJI':aji__, 'DSB':DSB__}
+    for k, t in enumerate(np.arange(0.5, 1, 0.05)):
         df_dic['precision_t_{}'.format(t)] = ps__[:, k]
         df_dic['tp_t_{}'.format(t)] = tp__[:, k]
         df_dic['fn_t_{}'.format(t)] = fn__[:, k]

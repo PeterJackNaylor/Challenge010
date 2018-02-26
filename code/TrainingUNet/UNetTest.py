@@ -15,6 +15,7 @@ import pandas as pd
 import os
 from skimage import img_as_ubyte
 from UNetValidation import Model_pred
+from skimage.morphology import remove_small_objects
 import pdb
 
 def GetHP(csv_path):
@@ -65,7 +66,7 @@ if __name__== "__main__":
         CheckOrCreate(OUT_ID)
         dic_prob[key] = np.mean(np.concatenate(dic[key]), axis=0)[:,:,1]
         dic_final_pred[key] = PostProcess(dic_prob[key], P1, P2)
-
+        dic_final_pred[key] = remove_small_objects(dic_final_pred[key], 100)
         img_mean = np.mean(imread(key)[:,:,0:3])
         if img_mean < 125:
             color_cont = False
