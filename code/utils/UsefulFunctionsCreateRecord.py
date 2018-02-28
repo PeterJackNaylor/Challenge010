@@ -273,7 +273,6 @@ def read_and_decode(filename_queue, IMAGE_HEIGHT, IMAGE_WIDTH,
         resized_annotation = tf.image.resize_image_with_crop_or_pad(image=annotation_f1,
                                                target_height=const_MASK_HEIGHT,
                                                target_width=const_MASK_WIDTH)
-
         images, annotations = tf.train.shuffle_batch( [resized_image, resized_annotation],
                                                      batch_size=BATCH_SIZE,
                                                      capacity=100 + 3 * BATCH_SIZE,
