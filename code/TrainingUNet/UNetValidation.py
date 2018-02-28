@@ -127,7 +127,7 @@ if __name__== "__main__":
 
     HP_dic = {}
     for p1 in P1_List:
-        for p2 in P2_list:
+        for p2 in P2_list:    
             HP_dic[(p1, p2)] = ComputeScores(test_img_all, dic_test_gt_all, dic_pred, p1, p2)
     tab = pd.DataFrame.from_dict(HP_dic, orient='index')
     tab.columns = ['AJI', 'F1', 'DSB']

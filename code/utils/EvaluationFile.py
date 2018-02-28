@@ -35,7 +35,7 @@ def WriteEvaluation(name, dic):
     f = open(name, 'w')
     f.write("ImageId,EncodedPixels\n")
     for key in dic.keys():
-        img_lab = label(dic[key]) .flatten()
+        img_lab = label(dic[key].T) .flatten()
         for i in range(1, img_lab.max() + 1):
             # one_nuclei = img_lab.copy()
             # one_nuclei[one_nuclei != i] = 0

@@ -201,6 +201,41 @@ def RandomBrightness(image, label, p):
                                 , lambda: image)
         return image, label
 
+def ElasticDeformation(image, alpha, alpha_affine, sigma):
+    with tf.name_scope("ElasticDeformation"):
+        return 'hi'
+
+
+def Generate(img, alpha_affine):
+    x, y, z = return_shape(img)
+    cent = tf.stack([x, y]) / 2
+    sq_size = tf.minimum(x, y) / 3
+#    return sq_size
+    second = tf.stack([x / 2 + sq_size, y / 2 - sq_size])
+#    return cent + sq_size, second, cent - sq_size
+    pts1 = tf.cast(tf.stack([cent + sq_size, second
+                                   , cent - sq_size]), tf.float32)
+    pts2 = pts1 + tf.reshape(tf.random_uniform([6], -alpha_affine, alpha_affine), [3,2])
+
+    return pts1, pts2
+#   return M
+def RandomElasticDeformation(image, annotation, p,
+                             alpha=1, 
+                             alpha_affine=1,
+                             sigma=1):
+    with tf.name_scope("RandomElasticDeformation"):
+        coin_ela = coin_flip(p)
+        annotation = expend(annotation, 92)
+        x, y, z = return_shape(annotation)
+        alpha = tf.multiply(x, alpha)
+        alpha_affine = tf.multiply(x, alpha_affine)
+        sigma = tf.multiply(x, sigma)
+        M = Genrate(img, alpha_affine)
+
+        image, annotation = tl.prepro.elastic_transform_multi([image, annotation],
+                            alpha=720, sigma=24, is_random=True)
+        return image, annotation[92:-92,92:-92]
+
 def augment(image_f, annotation_f):
     with tf.name_scope("DataAugmentation"):
         image_f, annotation_f = RandomFlip(image_f, annotation_f, 0.5)    
@@ -310,11 +345,14 @@ if __name__ == '__main__':
     #     apply_f = tf.reshape(apply_f, [])
     # Evaluate the tensor `c`.
 #    r_RGB, r_LAB = since
-    HUE_RGB = ChangeBrightness(RGB, 0.)
-    HUEminus_RGB = ChangeBrightness(RGB, -0.5)
-    HUEpositiv_RGB = ChangeBrightness(RGB, 0.5)
-    RANDOM_BRIG, LAB1 = RandomBrightness(RGB, LAB, 1.)
-    RANDOM_BRIG2, LAB2 = RandomBrightness(RGB, LAB, 1.)
-    RANDOM_BRIG3, LAB3 = RandomBrightness(RGB, LAB, 0.)
-    RGB_1, RGB_2, RGB_3 = sess.run([RANDOM_BRIG, RANDOM_BRIG2, RANDOM_BRIG3], feed_dict={RGB:img, LAB:lab})
+    # HUE_RGB = ChangeBrightness(RGB, 0.)
+    # HUEminus_RGB = ChangeBrightness(RGB, -0.5)
+    # HUEpositiv_RGB = ChangeBrightness(RGB, 0.5)
+    # RANDOM_BRIG, LAB1 = RandomBrightness(RGB, LAB, 1.)
+    # RANDOM_BRIG2, LAB2 = RandomBrightness(RGB, LAB, 1.)
+    # RANDOM_BRIG3, LAB3 = RandomBrightness(RGB, LAB, 0.)
+    M = Generate(img, 1)
+    #rgb = ElasticDeformation(RGB, 1, 1, 1)
+    #rgb_p, lal_p = sess.run([rgb, lab], feed_dict={RGB:img, LAB:lab})
+    print sess.run(M, feed_dict={RGB:img})
 

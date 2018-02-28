@@ -15,7 +15,7 @@ class UNetDistance(UNetBatchNorm):
         LEARNING_RATE=0.01,
         K=0.96,
         BATCH_SIZE=10,
-        IMAGE_SIZE=28,
+        IMAGE_SIZE=(28,28),
         NUM_CHANNELS=1,
         NUM_TEST=10000,
         STEPS=2000,
@@ -90,19 +90,13 @@ class UNetDistance(UNetBatchNorm):
     def init_training_graph(self):
 
         with tf.name_scope('Evaluation'):
-            # self.logits = self.conv_layer_f(self.last, self.logits_weight, strides=[1,1,1,1], scope_name="logits/")
             with tf.name_scope("logits/"):
                 self.logits2 = tf.nn.conv2d(self.last, self.logits_weight, strides=[1,1,1,1], padding="VALID")
                 self.logits = tf.nn.bias_add(self.logits2, self.logits_biases)
             self.predictions = self.logits
-            #self.predictions = tf.squeeze(self.logits, [3])
-            #softmax = tf.nn.softmax(self.logits)
-            #print softmax.get_shape()
-            #self.predictions = tf.slice(softmax, [0, 0, 0, 0], [-1, -1, -1, 1])
             with tf.name_scope('Loss'):
 
                 self.loss = tf.reduce_mean(tf.losses.mean_squared_error(self.logits, self.train_labels_node))
-                #self.loss = tf.reduce_mean(tf.losses.mean_squared_error(self.predictions, self.train_labels_node))
                 tf.summary.scalar("mean_squared_error", self.loss)
             self.predictions = tf.squeeze(self.predictions, [3])
             self.train_prediction = self.predictions
