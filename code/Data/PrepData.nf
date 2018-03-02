@@ -152,4 +152,15 @@ process HistogramNormalization {
 	"""
 }
 
+TEST_IMAGES = file("../../dataset/stage1_test/")
 
+process HistogramNormalizationTestSet {
+    publishDir "../../intermediary_files/Data/HistoNorm/TestSet", overwrite:true
+    input: 
+    file _ from TEST_IMAGES
+    output:
+    file "data_unet_histonorm_test"
+    """
+    python $HISTO_NORMALIZATION --input $TEST_IMAGES --output data_unet_histonorm_test
+    """
+}
