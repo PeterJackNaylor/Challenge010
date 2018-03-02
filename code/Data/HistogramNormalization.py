@@ -84,6 +84,9 @@ if __name__ == '__main__':
         local_output_folder = root.replace(input_folder, output_folder)
         CheckOrCreate(local_output_folder)
         for filename in files:
+            if filename[0] == ".":
+            #if os.path.splitext(filename)[0] == '':
+                continue
             if filename.endswith('_mask.png'):
                 shutil.copy(os.path.join(root, filename), local_output_folder)
             else:
