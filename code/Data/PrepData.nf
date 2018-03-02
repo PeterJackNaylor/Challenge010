@@ -138,3 +138,18 @@ process MakeUNetData {
     python $UNET_MAKE_DATA --input $tab --output data_unet --splits $SPLITS
     """
 }
+
+HISTO_NORMALIZATION = file("HistogramNormalization.py")
+
+process HistogramNormalization {
+	publishDir "../../intermediary_files/Data/HistoNorm", overwrite:true
+	input: 
+	file unet_folder from TAB2
+	output:
+	file "data_unet_histonorm"
+	"""
+	python $HISTO_NORMALIZATION --input $unet_folder --output data_unet_histonorm
+	"""
+}
+
+
