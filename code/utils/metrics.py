@@ -103,7 +103,47 @@ def AJI_fast(G, S):
     U += U_sum
     return float(C) / float(U)  
 
-
-
 def ComputeMetrics(**args):
     print "not implemented"
+
+def DataScienceBowlMetrics(G, S):
+    def ComputeAssociations(G, S):
+        G = label(G, background=0)
+        S = label(S, background=0)
+
+        G_flat = G.flatten()
+        S_flat = S.flatten()
+        G_max = np.max(G_flat)
+        S_max = np.max(S_flat)
+        m_labels = max(G_max, S_max) + 1
+        cm = confusion_matrix(G_flat, S_flat, labels=range(m_labels)).astype(np.float)
+        cm_like = np.zeros_like(cm)
+        for line_ind in range(G_max + 1):
+            LINE_SUM = cm[line_ind,:].sum()
+            for col_ind in range(S_max + 1):
+                inter = cm[line_ind, col_ind]
+                COLUMN_SUM = cm[:, col_ind].sum()
+                union = LINE_SUM + COLUMN_SUM - inter
+                cm_like[line_ind, col_ind] = float(inter) / float(union)
+        return cm_like[1:(G_max + 1), 1:(S_max + 1)]
+    def precision_at(IOU, threshold):
+        HITS = IOU > threshold
+        tp_ = np.sum(np.sum(HITS, axis=1) == 1)
+        fp_ = np.sum(np.sum(HITS, axis=0) == 0)
+        fn_ = np.sum(np.sum(HITS, axis=1) == 0)
+        return tp_, fp_, fn_
+
+    iou = ComputeAssociations(G, S)
+    p = []
+    TP = []
+    FN = []
+    FP = []
+    for t in np.arange(0.5, 1.0, 0.05):
+        tp, fp, fn = precision_at(iou, t)
+        TP.append(tp)
+        FP.append(fp)
+        FN.append(fn)
+        score_t = float(tp) / (tp + fp + fn)
+        p.append(score_t)
+
+    return np.mean(p), p, TP, FN, FP

@@ -195,7 +195,10 @@ if __name__== "__main__":
     samples_per_epoch = len([0 for record in tf.python_io.tf_record_iterator(options.TFRecord)] )
     N_ITER_MAX = options.epoch * samples_per_epoch // BATCH_SIZE ## defined later
     LRSTEP = "10epoch"
-    N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE
+    if options.epoch == 1:
+        N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE // 5
+    else:
+        N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE
     LOG = options.log
     WEIGHT_DECAY = options.wd 
     N_FEATURES = options.nfeat
@@ -221,19 +224,10 @@ if __name__== "__main__":
                                        MEAN_FILE=MEAN_FILE,
                                        DROPOUT=0.5,
                                        EARLY_STOPPING=10)
-    if SPLIT == "train":
-        list_img, dic = GatherFiles(options.path, options.test, "test")
-        output_name = LOG + ".csv"
-        model.train(list_img, dic, output_name)
-    elif SPLIT == "test":
-        p1 = options.p1
-        file_name = options.output
-        f = open(file_name, 'w')
-        outs = model.test(options.p1, 0.5, N_ITER_MAX)
-        outs = [LOG] + list(outs) + [p1, 0.5]
-        NAMES = ["ID", "Loss", "Acc", "F1", "Recall", "Precision", "ROC", "Jaccard", "AJI", "p1", "p2"]
-        f.write('{},{},{},{},{},{},{},{},{},{},{}\n'.format(*NAMES))
 
-        f.write('{},{},{},{},{},{},{},{},{},{},{}\n'.format(*outs))
+    list_img, dic = GatherFiles(options.path, options.test, "test")
+    output_name = LOG + ".csv"
+    model.train(list_img, dic, output_name)
+    
 
 

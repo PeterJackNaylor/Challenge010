@@ -1,4 +1,6 @@
 nxf*
+intermediary_files_kepler
+tmp_from_kepler
 # Created by https://www.gitignore.io/api/linux,macos
 
 ### Linux ###

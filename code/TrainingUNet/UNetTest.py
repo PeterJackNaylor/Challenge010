@@ -15,8 +15,9 @@ import pandas as pd
 import os
 from skimage import img_as_ubyte
 from UNetValidation import Model_pred
+from skimage.morphology import remove_small_objects
 import pdb
-
+from skimage.measure import label
 def GetHP(csv_path):
     table = pd.read_csv(csv_path, index_col=0)
     ind = table.idxmax()
@@ -63,9 +64,11 @@ if __name__== "__main__":
     for key in dic.keys():
         OUT_ID = join(options.output_sample, basename(key).replace('.png', ''))
         CheckOrCreate(OUT_ID)
-        dic_prob[key] = np.mean(np.concatenate(dic[key]), axis=0)[:,:,1]
+        dic_prob[key] = np.mean(np.concatenate(dic[key]), axis=0)[:,:,1] 
         dic_final_pred[key] = PostProcess(dic_prob[key], P1, P2)
-
+        # dic_final_pred[key] = (dic_prob[key] > P2).astype('uint8')
+        dic_final_pred[key] = label(dic_final_pred[key])
+        dic_final_pred[key] = remove_small_objects(dic_final_pred[key], 32)
         img_mean = np.mean(imread(key)[:,:,0:3])
         if img_mean < 125:
             color_cont = False
