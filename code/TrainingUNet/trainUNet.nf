@@ -77,7 +77,7 @@ process Meanfile {
 if( params.real == 1 ) {
     LEARNING_RATE = [0.01, 0.001, 0.0001, 0.00001]
     WEIGHT_DECAY = [0.0005, 0.00005]
-    N_FEATURES = [16, 32, 64]
+    N_FEATURES = [16, 32]
     BATCH_SIZE = 10
 }
 else {
@@ -197,10 +197,23 @@ process PredictTestSet {
     output:
     file "${params.name}_sampleTest"
     file "${params.name}_PredFile.csv"
-    """
-    python $py --mean_file $mean_array --hp $hp \\
-               --name $name --output_csv ${params.name}_PredFile.csv \\
-               --output_sample ${params.name}_sampleTest
-    """
+    script:
+    if( params.thalassa == 0 ){
+        """
+        python $py --mean_file $mean_array --hp $hp \\
+                   --name $name --output_csv ${params.name}_PredFile.csv \\
+                   --output_sample ${params.name}_sampleTest
+        """
+    } else {
+        """
+        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
+        function pyglib {
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+        }
+        pyglib $py --mean_file $mean_array --hp $hp \\
+                   --name $name --output_csv ${params.name}_PredFile.csv \\
+                   --output_sample ${params.name}_sampleTest
+        """
+    }
 
 }
