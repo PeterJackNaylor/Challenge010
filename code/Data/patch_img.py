@@ -1,6 +1,7 @@
 from utils.Global_Info import image_files, image_test_files, masks_dic
 from skimage.io import imread
 from skimage import morphology as morp
+from skimage import measure
 import numpy as np
 import pdb
 import os
@@ -62,6 +63,16 @@ def meta_data_test(el, empty_dic):
     empty_dic.loc[basename(el), 'WhiteBackGround'] = WhiteBackGround
     empty_dic.loc[basename(el), 'BlackBackGround'] = BlackBackGround
 
+def closenness(img_mask):
+    labeled = measure.label(img_mask)
+    cc = labeled.max()
+    labeled[labeled > 0] = 1
+    labeled = morp.dilation(labeled, morp.disk(3))
+    labeled = measure.label(labeled)
+    cc = cc - labeled.max()
+    return cc
+
+
 def meta_data(el, mask_el, empty_dic):
     
     meta_data_test(el, empty_dic)
@@ -96,14 +107,21 @@ def meta_data(el, mask_el, empty_dic):
         empty_dic.loc[basename(el), "mean_values_background_channel_{}".format(k)] = img[:,:,k][img_bin == 0].mean()
         empty_dic.loc[basename(el), "std_values_background_channel_{}".format(k)] = img[:,:,k][img_bin == 0].std()
 
-    noise = img[:,:,0].copy() - morp.opening(img[:,:,0])
-    noise_dect = np.mean(noise[img_bin == 1])
-    empty_dic.loc[basename(el), "noise_dect"] = noise_dect
+
+    empty_dic.loc[basename(el), "closeness"] = closenness(img_mask)
+    chan_0 = img[:,:,0].copy().astype('float')
+    chan_0 = (chan_0 - chan_0.min()) / (chan_0.max() - chan_0.min())
+    noise =  chan_0 - morp.opening(chan_0)
+    noise_dect_nuc = np.mean(noise[img_bin == 1])
+    noise_dect_back = np.mean(noise[img_bin == 0])
+    empty_dic.loc[basename(el), "noise_dect_nuc"] = noise_dect_nuc
+    empty_dic.loc[basename(el), "noise_dect_back"] = noise_dect_back
 
 
 def split_into_domain(table):
     for i in range(NCLUST):
         os.mkdir('domain_RGB_group_{}'.format(i))
+    for i in range(NCLUST + 4):
         os.mkdir('domain_BlackBackGround_group_{}'.format(i))
     os.mkdir('domain_WhiteBackGround')
 
@@ -195,7 +213,8 @@ def unsupervised_groups(tab):
                     ["std_values_background_channel_{}".format(k) for k in range(0,3)]
     features_nuc = ["mean_values_nuclei_channel_{}".format(0)] + \
                     ["std_values_nuclei_channel_{}".format(0)] + \
-                    ["nuclei_avg_size", "noise_dect"]
+                    ["nuclei_avg_size", "noise_dect_nuc", "noise_dect_back"] +\
+                    ["shape_x", "shape_y"]
                     #["nuclei_avg_size", "number_of_nuclei", ""]
 
     feat_ = only_rgb[features_back]
@@ -207,8 +226,9 @@ def unsupervised_groups(tab):
 
     #model = cluster.KMeans(n_clusters=NCLUST)
     model = cluster.AgglomerativeClustering(n_clusters=NCLUST)
+    model_3 = cluster.AgglomerativeClustering(n_clusters=NCLUST + 4)
 
     tab.loc[tab["RGB"] == 1 , "background_RGB"] = model.fit_predict(feat_)
-    tab.loc[tab["BlackBackGround"] == 1 , "background_BBG"] = model.fit_predict(feat_bbg)
+    tab.loc[tab["BlackBackGround"] == 1 , "background_BBG"] = model_3.fit_predict(feat_bbg)
 
     return tab
