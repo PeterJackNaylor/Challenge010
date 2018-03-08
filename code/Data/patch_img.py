@@ -1,11 +1,17 @@
 from utils.Global_Info import image_files, image_test_files, masks_dic
 from skimage.io import imread
+from skimage import morphology as morp
 import numpy as np
 import pdb
 import os
 from os.path import abspath, basename, join
 from scipy.ndimage.morphology import morphological_gradient
 from utils.random_utils import generate_wsl
+from sklearn import cluster
+from sklearn import preprocessing
+import pandas as pd
+
+NCLUST = 6
 
 def fuse(el, dic):
     """
@@ -32,7 +38,7 @@ def meta_data_test(el, empty_dic):
     empty_dic.loc[basename(el), "shape_x"] = x
     empty_dic.loc[basename(el), "shape_y"] = y
     empty_dic.loc[basename(el), "shape_z"] = z
-
+    #pdb.set_trace()
     mean = np.zeros(z, dtype=float)
     for i in range(z):
         mean[i] = np.mean(img[:,:,i])
@@ -61,6 +67,7 @@ def meta_data(el, mask_el, empty_dic):
     meta_data_test(el, empty_dic)
     empty_dic.loc[basename(el), "path_to_label"] = abspath(mask_el)
 
+    img = imread(el)
     img_mask = imread(mask_el)
     img_bin = img_mask.copy()
     img_bin[img_bin > 0] = 1
@@ -82,12 +89,44 @@ def meta_data(el, mask_el, empty_dic):
     empty_dic.loc[basename(el), "nuclei_med_size"] = np.median(nuc_size)
     empty_dic.loc[basename(el), "nuclei_min_size"] = np.min(nuc_size)
     empty_dic.loc[basename(el), "proportion_of_annotation"] = float(img_bin.sum()) / (x * y)
+    #pdb.set_trace()
+    for k in range(3):
+        empty_dic.loc[basename(el), "mean_values_nuclei_channel_{}".format(k)] = img[:,:,k][img_bin == 1].mean()
+        empty_dic.loc[basename(el), "std_values_nuclei_channel_{}".format(k)] = img[:,:,k][img_bin == 1].std()
+        empty_dic.loc[basename(el), "mean_values_background_channel_{}".format(k)] = img[:,:,k][img_bin == 0].mean()
+        empty_dic.loc[basename(el), "std_values_background_channel_{}".format(k)] = img[:,:,k][img_bin == 0].std()
+
+    noise = img[:,:,0].copy() - morp.opening(img[:,:,0])
+    noise_dect = np.mean(noise[img_bin == 1])
+    empty_dic.loc[basename(el), "noise_dect"] = noise_dect
 
 
 def split_into_domain(table):
+    for i in range(NCLUST):
+        os.mkdir('domain_RGB_group_{}'.format(i))
+        os.mkdir('domain_BlackBackGround_group_{}'.format(i))
+    os.mkdir('domain_WhiteBackGround')
+
+    def symlink_copy_to_folder(row):
+        src = row["path_to_image"]
+        dest = join('domain_{}', basename(src))
+        if row['RGB']:
+            val = int(row["background_RGB"])
+            dest = dest.format('RGB_group_{}'.format(val))
+        elif row["WhiteBackGround"]:
+            dest = dest.format('WhiteBackGround')
+        else:
+            val = int(row["background_BBG"])
+            dest = dest.format('BlackBackGround_group_{}'.format(val))
+            
+        os.symlink(src, dest)
+
+    table.apply(lambda row: symlink_copy_to_folder(row), axis=1)    
+
+def split_into_domain_test(table):
     os.mkdir('domain_RGB')
-    os.mkdir('domain_BlackOnWhite')
-    os.mkdir('domain_WhiteOnBlack')
+    os.mkdir('domain_BlackBackGround')
+    os.mkdir('domain_WhiteBackGround')
 
     def symlink_copy_to_folder(row):
         src = row["path_to_image"]
@@ -95,9 +134,10 @@ def split_into_domain(table):
         if row['RGB']:
             dest = dest.format('RGB')
         elif row["WhiteBackGround"]:
-            dest = dest.format('BlackOnWhite')
+            dest = dest.format('WhiteBackGround')
         else:
-            dest = dest.format('WhiteOnBlack')
+            dest = dest.format('BlackBackGround')
+
         os.symlink(src, dest)
 
     table.apply(lambda row: symlink_copy_to_folder(row), axis=1)    
@@ -132,3 +172,43 @@ def Overlay_with_pred(rgb, pred_image, black=True):
     else:
         res[mask > 0] = np.array([255, 255, 255])
     return res
+
+def scale(table):
+    x = table.values #returns a numpy array
+    min_max_scaler = preprocessing.MinMaxScaler()
+    x_scaled = min_max_scaler.fit_transform(x)
+    df = pd.DataFrame(x_scaled)
+    return df
+
+def unsupervised_groups(tab):
+    """
+    Divides blackbackground images in two groups and rgb ones
+    """
+    only_rgb = tab[tab["RGB"] == 1]
+    only_bbg = tab[tab["BlackBackGround"] == 1]
+    features_str = ["mean_values_nuclei_channel_{}".format(k) for k in range(0,3)] +  \
+                        ["mean_values_background_channel_{}".format(k) for k in range(0,3)]  +\
+                        ["std_values_nuclei_channel_{}".format(k) for k in range(0,3)]  +\
+                        ["std_values_background_channel_{}".format(k) for k in range(0,3)]  +\
+                        ["nuclei_avg_size", "number_of_nuclei"]
+    features_back = ["mean_values_background_channel_{}".format(k) for k in range(0,3)] +\
+                    ["std_values_background_channel_{}".format(k) for k in range(0,3)]
+    features_nuc = ["mean_values_nuclei_channel_{}".format(0)] + \
+                    ["std_values_nuclei_channel_{}".format(0)] + \
+                    ["nuclei_avg_size", "noise_dect"]
+                    #["nuclei_avg_size", "number_of_nuclei", ""]
+
+    feat_ = only_rgb[features_back]
+    feat_bbg = only_bbg[features_nuc]
+
+    feat_ = scale(feat_)
+    feat_bbg = scale(feat_bbg)
+
+
+    #model = cluster.KMeans(n_clusters=NCLUST)
+    model = cluster.AgglomerativeClustering(n_clusters=NCLUST)
+
+    tab.loc[tab["RGB"] == 1 , "background_RGB"] = model.fit_predict(feat_)
+    tab.loc[tab["BlackBackGround"] == 1 , "background_BBG"] = model.fit_predict(feat_bbg)
+
+    return tab
