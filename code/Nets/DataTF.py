@@ -156,12 +156,13 @@ class DataReader(ConvolutionalNeuralNetwork):
             self.saver.save(self.sess, self.LOG + '/' + "model.ckpt", step)
 
 
-    def early_stopping(self, data_res, variable_name):
+    def early_stopping(self, data_res, variable_name, eps=10**-4):
         vec_values = np.array(data_res[variable_name])
         if len(vec_values) > self.early_stopping_max:
             val_to_beat = vec_values[-(self.early_stopping_max + 1)]
             values_to_check = vec_values[-self.early_stopping_max:]
-            return (val_to_beat > values_to_check).all()
+            is_one_better = ( values_to_check -  val_to_beat > eps ).any()
+            return not is_one_better
         else:
             return False
 

@@ -9,7 +9,10 @@ from skimage import img_as_ubyte
 
 def PrepareProb(img, convertuint8=True, inverse=True):
     if convertuint8:
-        img = img_as_ubyte(img)
+        try:
+            img = img_as_ubyte(img)
+        except:
+            pdb.set_trace()
     if inverse:
         img = 255 - img
     return img

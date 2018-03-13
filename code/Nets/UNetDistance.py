@@ -31,7 +31,8 @@ class UNetDistance(UNetBatchNorm):
         N_EPOCH=1,
         N_THREADS=1,
         MEAN_FILE=None,
-        DROPOUT=0.5):
+        DROPOUT=0.5,
+        EARLY_STOPPING=10):
 
         self.LEARNING_RATE = LEARNING_RATE
         self.K = K
@@ -51,7 +52,8 @@ class UNetDistance(UNetBatchNorm):
         self.DROPOUT = DROPOUT
         self.MEAN_FILE = MEAN_FILE
         if MEAN_FILE is not None:
-            MEAN_ARRAY = tf.constant(np.load(MEAN_FILE), dtype=tf.float32) # (3)
+            self.MEAN_NPY = np.load(MEAN_FILE)
+            MEAN_ARRAY = tf.constant(self.MEAN_NPY, dtype=tf.float32) # (3)
             self.MEAN_ARRAY = tf.reshape(MEAN_ARRAY, [1, 1, 3])
             self.SUB_MEAN = True
         else:
@@ -69,20 +71,20 @@ class UNetDistance(UNetBatchNorm):
         self.init_vars()
         self.init_model_architecture()
         self.init_training_graph()
+        self.early_stopping_max = EARLY_STOPPING
         self.Saver()
         self.DEBUG = DEBUG
         self.loss_func = LOSS_FUNC
         self.weight_decay = WEIGHT_DECAY
     def init_queue(self, tfrecords_filename):
         self.filename_queue = tf.train.string_input_producer(
-                              [tfrecords_filename], num_epochs=10)
+                              [tfrecords_filename], num_epochs=1000)
         with tf.device('/cpu:0'):
             self.image, self.annotation = read_and_decode(self.filename_queue, 
                                                           self.IMAGE_SIZE[0], 
                                                           self.IMAGE_SIZE[1],
                                                           self.BATCH_SIZE,
                                                           self.N_THREADS,
-                                                          True,
                                                           self.NUM_CHANNELS)
             #self.annotation = tf.divide(self.annotation, 255.)
         print("Queue initialized")

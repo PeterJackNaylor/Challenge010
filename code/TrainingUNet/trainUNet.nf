@@ -2,17 +2,18 @@
 
 params.input_f = "../../intermediary_files/Data/UNetData/data_unet"
 params.epoch = 1
-params.train = "UNet.py"
-params.validation = "UNetValidation.py"
-params.test = "UNetTest.py"
+params.train = "UNet/UNet.py"
+params.validation = "UNet/UNetValidation.py"
+params.test = "UNet/UNetTest.py"
+params.retrain = "UNet/UNetRetrain.py"
 params.size = 212
 params.unet_like = 1
 params.name = "UNet"
 params.real = 0
 params.test_set = "../../dataset/stage1_test/*/images/*.png"
 params.thalassa = 0
+params.info_pc = "../../intermediary_files/Data/train_test.csv"
 
-println(params.thalassa)
 FOLDS_PATH_GLOB = params.input_f + "/Slide_*"
 INPUT_F = file(params.input_f)
 FOLDS_POSSIBLE = file(FOLDS_PATH_GLOB, type: 'dir', followLinks: true)
@@ -76,7 +77,7 @@ process Meanfile {
 
 if( params.real == 1 ) {
     LEARNING_RATE = [0.001, 0.0001, 0.00001]
-    WEIGHT_DECAY = [0.0005, 0.00005]
+    WEIGHT_DECAY = [0.00005]
     N_FEATURES = [32]
     BATCH_SIZE = 10
 }
@@ -99,7 +100,7 @@ process TrainModel {
         queue "cuda.q"
         maxForks 2    
     } else {
-        maxForks 2
+        maxForks 1
     }
 
     input:
@@ -152,7 +153,7 @@ process PickBestModel {
 }
 
 NAME.map{it -> [it.name, "blank"]}.into{BEST_T;BEST_T2}
-BEST_T.cross(LOG_FOLDER).map{it -> it[1][1]}.into{BEST_G_LOG; BEST_LOG_FINAL}
+BEST_T.cross(LOG_FOLDER).map{it -> it[1][1]}.into{BEST_G_LOG; BEST_LOG_2}
 BEST_T2.cross(CSV_FOLDER2).map{it -> it[1][1]}.set{BEST_G_CSV}
 
 
@@ -189,6 +190,50 @@ process FindingP1P2 {
         }
         pyglib $py --path $path --mean_file $mean_array --name $name\\
                    --output ${name}__onTrainingSet
+        """
+    }
+}
+
+process ReTraining {
+    clusterOptions "-S /bin/bash"
+    publishDir "../../intermediary_files/Training_stage_two/${params.name}/Final", overwrite:true
+    if( params.real == 1 ) {
+        beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
+        afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
+    }
+    if( params.thalassa == 1 ){
+        queue "cuda.q"
+        maxForks 2    
+    } else {
+        maxForks 2
+    }
+    input:
+    file name from NAME_
+    file log from BEST_LOG_2
+    file path from INPUT_F
+    file mean_array from MEAN_ARRAY
+    file sum from SUMMARY_TRAIN
+    val bs from BATCH_SIZE
+
+    output:
+    file into BEST_LOG_FINAL
+
+    script:
+    if( params.thalassa == 0 ){
+        """
+        python ${params.retrain} --path $path --size_train ${params.size} --mean_file $mean_array \\
+                   --log $log --split train --epoch ${params.epoch} \\
+                   --batch_size $bs --table $sum --info ${params.info_pc}
+        """
+    }
+    else {
+        """
+        function pyglib {
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/bin/python \$@
+        }
+        pyglib ${params.retrain} --path $path --size_train ${params.size} --mean_file $mean_array \\
+                   --log $log --split train --epoch ${params.epoch} \\
+                   --batch_size $bs --table $sum --info ${params.info_pc}
         """
     }
 }
