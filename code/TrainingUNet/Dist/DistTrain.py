@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+
+from utils.Postprocessing import PostProcess
 from utils.metrics import ComputeMetrics
 from glob import glob
 from Nets.UNetDistance import UNetDistance
@@ -17,10 +19,20 @@ import pandas as pd
 import os
 from sklearn.metrics import f1_score, accuracy_score
 
+def format_for_sure(array):
+    array[array > 0] = 1
+    array[array < 0] = 0
+    array = array.astype('uint8')
+    return array
+
 def ComputeValScores(truth, prediction):
     prediction = prediction.reshape(truth.shape)
-    prediction[prediction > 0] = 1
+    prediction[prediction < 0.5] = 0
+    # prediction = PostProcess(prediction)
+    prediction[prediction > 0.5] = 1
     truth[truth > 0] = 1
+    prediction = format_for_sure(prediction)
+    truth = format_for_sure(truth)
     pred_f = prediction.flatten()
     truth_f = truth.flatten()
     return accuracy_score(truth_f, pred_f), f1_score(truth_f, pred_f)
@@ -46,7 +58,7 @@ class Model(UNetDistance):
             l.append(l_tmp)
 
 
-            acc_tmp, F1_tmp = ComputeValScores(label, self.test_prediction)
+            acc_tmp, F1_tmp = ComputeValScores(label, test_prediction)
             acc.append(acc_tmp)
             F1.append(F1_tmp)
         l = np.mean([el if not math.isnan(el)else 0. for el in l])
@@ -61,7 +73,7 @@ class Model(UNetDistance):
 
         self.summary_test_writer.add_summary(s, step) 
         print('  Validation loss: %.1f' % l)
-        print('       Accuracy: %1.f%% \n       acc1: %.1f%% \n       f1 : %1.f%% \n' % (acc * 100, meanacc * 100, F1 * 100))
+        print('       Accuracy: %1.f%% \n       f1 : %1.f%% \n' % (acc * 100, F1 * 100))
         self.saver.save(self.sess, self.LOG + '/' + "model.ckpt", step)
         wgt_path = self.LOG + '/' + "model.ckpt-{}".format(step)
         return l, acc, F1, wgt_path
@@ -104,11 +116,9 @@ class Model(UNetDistance):
                     i = datetime.now()
                     print i.strftime('%Y/%m/%d %H:%M:%S: \n ')
                     self.summary_writer.add_summary(s, step)                
-                    error, acc, acc1, recall, prec, f1 = self.error_rate(predictions, batch_labels, step)
                     print('  Step %d of %d' % (step, steps))
                     print('  Learning rate: %.5f \n') % lr
-                    print('  Mini-batch loss: %.5f \n       Accuracy: %.1f%% \n       acc1: %.1f%% \n       f1 : %1.f%% \n' % 
-                         (l, acc, acc1, f1))
+                    print('  Mini-batch loss: %.5f \n' % l )
                     l, acc, F1, wgt_path = self.Validation(list_img, dic, step)
                     data_res.loc[step, "loss"] = l
                     data_res.loc[step, "acc"] = acc

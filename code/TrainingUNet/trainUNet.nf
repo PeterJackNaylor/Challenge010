@@ -76,7 +76,7 @@ process Meanfile {
 
 if( params.real == 1 ) {
     LEARNING_RATE = [0.001, 0.0001, 0.00001]
-    WEIGHT_DECAY = [0.0005, 0.00005]
+    WEIGHT_DECAY = [0.00005]
     N_FEATURES = [32]
     BATCH_SIZE = 10
 }
@@ -99,7 +99,7 @@ process TrainModel {
         queue "cuda.q"
         maxForks 2    
     } else {
-        maxForks 2
+        maxForks 1
     }
 
     input:

@@ -160,7 +160,7 @@ class DataReader(ConvolutionalNeuralNetwork):
         if len(vec_values) > self.early_stopping_max:
             val_to_beat = vec_values[-(self.early_stopping_max + 1)]
             values_to_check = vec_values[-self.early_stopping_max:]
-            return not ( values_to_check -  val_to_beat > eps ).all()
+            return not ( values_to_check -  val_to_beat > eps ).any()
         else:
             return False
 
