@@ -19,8 +19,8 @@ import pdb
 from sklearn.metrics import f1_score
 from progressbar import ProgressBar
 
-P1_List = range(0, 8)
-P2_list = [0.5, 1.]
+P1_List = [1] # range(0, 8)
+P2_list = [0.5] #[0.5, 1.]
 
 class Model_pred(Model):
     def pred(self, img_path): 
@@ -30,7 +30,7 @@ class Model_pred(Model):
         stepSize = UNetAdjust_pixel(img)
         windowSize = (184 + stepSize[0], 184 + stepSize[1])
         img = UNetAugment(img)
-        result = np.zeros(shape=(1, x, y, 2), dtype='float')
+        result = np.zeros(shape=(1, x, y), dtype='float')
         for xb, yb, xe, ye, sub_img in sliding_window(img, stepSize, windowSize):
             Xval = sub_img[np.newaxis, :]
             feed_dict = {self.input_node: Xval,
@@ -59,7 +59,11 @@ def ComputeScores(list_rgb, dic_gt, dic_prob,
     res_FP = []
     for path in list_rgb:
         GT = imread(dic_gt[path])
-        S = PostProcess(dic_prob[path][:,:,0], p1, p2)
+        GT = PostProcess(GT, 1, 0)
+        DImg = dic_prob[path]
+	DImg[DImg < 0] = 0
+        DImg = DImg.astype("uint8")
+        S = PostProcess(DImg, p1, p2)
         res_AJI.append(AJI_fast(GT, S))
         res_F1.append(ComputeF1(GT, S))
         scores, p_s, TP, FN, FP = DataScienceBowlMetrics(GT, S)
@@ -80,8 +84,8 @@ def ComputeScores(list_rgb, dic_gt, dic_prob,
             os.symlink(abspath(dic_gt[path]), join(OUT, "bin.png"))
             imsave(join(OUT, "colored_bin.png"), color_bin(label(GT)))
             imsave(join(OUT, "colored_pred.png"), color_bin(S)) 
-            imsave(join(OUT, "output_DNN.png"), img_as_ubyte(dic_prob[path][:,:,1]))
-            imsave(join(OUT, "contours_gt.png"), Overlay(path, dic_gt[path], color_cont).astype('uint8')) 
+            imsave(join(OUT, "output_DNN.png"), DImg)
+            imsave(join(OUT, "contours_gt.png"), Overlay_with_pred(path, GT, color_cont).astype('uint8')) 
             imsave(join(OUT, "contours_pred.png"), Overlay_with_pred(path, S, color_cont).astype('uint8'))
 #            pdb.set_trace()
     if keep_memory:
