@@ -12,7 +12,7 @@ params.real = 0
 params.test_set = "../../dataset/stage1_test/*/images/*.png"
 params.thalassa = 0
 
-
+println(params.thalassa)
 FOLDS_PATH_GLOB = params.input_f + "/Slide_*"
 INPUT_F = file(params.input_f)
 FOLDS_POSSIBLE = file(FOLDS_PATH_GLOB, type: 'dir', followLinks: true)
@@ -159,7 +159,11 @@ BEST_T2.cross(CSV_FOLDER2).map{it -> it[1][1]}.set{BEST_G_CSV}
 process FindingP1P2 {
     clusterOptions "-S /bin/bash"
     publishDir "../../intermediary_files/Training/${params.name}/Final", overwrite:true
-
+    if( params.real == 1 ) {
+        beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
+        afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
+        maxForks 2
+    }
     input:
     file name from NAME_
     file(log) from BEST_G_LOG .collect()
@@ -171,11 +175,22 @@ process FindingP1P2 {
     output:
     file "*.csv" into HP_SCORE
     file "${name}__onTrainingSet"
-    """
-    python $py --path $path --mean_file $mean_array --name $name\\
-               --output ${name}__onTrainingSet
-
-    """
+    script:
+    if( params.thalassa == 0 ){
+        """
+        python $py --path $path --mean_file $mean_array --name $name\\
+                   --output ${name}__onTrainingSet
+        """
+    } else {
+        """
+        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
+        function pyglib {
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+        }
+        pyglib $py --path $path --mean_file $mean_array --name $name\\
+                   --output ${name}__onTrainingSet
+        """
+    }
 }
 
 process PredictTestSet {
