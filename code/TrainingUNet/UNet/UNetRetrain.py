@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import pdb
 from optparse import OptionParser
 from UNet import Model
 import tensorflow as tf
@@ -31,12 +32,13 @@ def PrepDomainTrainTable(info, values, list_img_test):
     g = lambda x: x.split('.')[0]
     info.index = info.index.map(g)
     val = pd.read_csv(values)
-    f = lambda x: x.split('/')[-1]
+    f = lambda x: x['path'].split('/')[-1]
+    f1 = lambda x: x.split('/')[-1]
     val["path"] = val.apply(f, axis=1)
     val = val.set_index("path")
-    test_ = pd.DataFrame({"name":[g(el) for el in list_img_test]})
+    test_ = pd.DataFrame({"path":[g(f1(el)) for el in list_img_test]})
     test_["test"] = 1
-    test_ = test_.set_index("name")
+    test_ = test_.set_index("path")
 
     res = pd.concat([info, val, test_], axis=1)
     res["test"] = res["test"].fillna(0)
@@ -105,14 +107,14 @@ class Model2(Model):
         self.sess.run(init_op)
         self.regularize_model()
 
-        self.Saver()
+        # self.Saver()
         self.summary_test_writer = tf.summary.FileWriter(self.LOG + '/test',
                                             graph=self.sess.graph)
 
         self.summary_writer = tf.summary.FileWriter(self.LOG + '/train', graph=self.sess.graph)
         self.merged_summary = tf.summary.merge_all()
         steps = self.STEPS
-
+        pdb.set_trace()
         print "self.global step", int(self.global_step.eval())
         begin = int(self.global_step.eval())
         print "begin", begin
@@ -169,19 +171,18 @@ if __name__== "__main__":
 
     ## Model parameters
     TFRecord = options.TFRecord
-    LEARNING_RATE = options.lr
+    # LEARNING_RATE = options.lr
     BATCH_SIZE = options.bs
     SIZE = (options.size_train, options.size_train)
-    samples_per_epoch = len([0 for record in tf.python_io.tf_record_iterator(options.TFRecord)] )
-    N_ITER_MAX = options.epoch * samples_per_epoch // BATCH_SIZE ## defined later
+    # samples_per_epoch = len([0 for record in tf.python_io.tf_record_iterator(options.TFRecord)] )
+    N_ITER_MAX = options.epoch 
     LRSTEP = "10epoch"
-    if options.epoch == 1:
-        N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE // 5
-    else:
-        N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE
+    N_TRAIN_SAVE = -1
     LOG = options.log
     WEIGHT_DECAY = options.wd 
-    N_FEATURES = options.nfeat
+    N_FEATURES = int(options.log.split('__')[-2])
+    WEIGHT_DECAY = float(options.log.split('__')[-3])
+    LEARNING_RATE = float(options.log.split('__')[-4])
     N_EPOCH = options.epoch
     N_THREADS = options.THREADS
     MEAN_FILE = options.mean_file 
@@ -190,7 +191,7 @@ if __name__== "__main__":
     table = PrepDomainTrainTable(options.info, options.table, list_img)
     # DROPOUT = options.dropout
     # drop out is unused
-    model = Model2(TFRecord,            LEARNING_RATE=LEARNING_RATE,
+    model = Model2("",                 LEARNING_RATE=LEARNING_RATE,
                                        BATCH_SIZE=BATCH_SIZE,
                                        IMAGE_SIZE=SIZE,
                                        NUM_LABELS=2,

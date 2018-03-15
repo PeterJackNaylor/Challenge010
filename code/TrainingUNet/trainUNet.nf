@@ -19,6 +19,7 @@ INPUT_F = file(params.input_f)
 FOLDS_POSSIBLE = file(FOLDS_PATH_GLOB, type: 'dir', followLinks: true)
 NUMBER_OF_FOLDS = FOLDS_POSSIBLE.size() - 1
 MODEL_TRAIN = file(params.train)
+MODEL_RETRAIN = file(params.retrain)
 MODEL_TEST  = file(params.test)
 MODEL_VALID = file(params.validation)
 MINI_EPOCH = 1
@@ -76,7 +77,7 @@ process Meanfile {
 }
 
 if( params.real == 1 ) {
-    LEARNING_RATE = [0.001, 0.0001, 0.00001]
+    LEARNING_RATE = [0.001, 0.0001]
     WEIGHT_DECAY = [0.00005]
     N_FEATURES = [32]
     BATCH_SIZE = 10
@@ -174,8 +175,9 @@ process FindingP1P2 {
     file mean_array from MEAN_ARRAY
 
     output:
-    file "*.csv" into HP_SCORE
+    file "Hyper_parameter_selection.csv" into HP_SCORE
     file "${name}__onTrainingSet"
+    file "__summary_per_image.csv" into SUMMARY_TRAIN
     script:
     if( params.thalassa == 0 ){
         """
@@ -214,14 +216,15 @@ process ReTraining {
     file mean_array from MEAN_ARRAY
     file sum from SUMMARY_TRAIN
     val bs from BATCH_SIZE
+    file py from MODEL_RETRAIN
 
     output:
-    file into BEST_LOG_FINAL
+    file "$log" into BEST_LOG_FINAL
 
     script:
     if( params.thalassa == 0 ){
         """
-        python ${params.retrain} --path $path --size_train ${params.size} --mean_file $mean_array \\
+        python ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
                    --log $log --split train --epoch ${params.epoch} \\
                    --batch_size $bs --table $sum --info ${params.info_pc}
         """
@@ -231,7 +234,7 @@ process ReTraining {
         function pyglib {
             /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/bin/python \$@
         }
-        pyglib ${params.retrain} --path $path --size_train ${params.size} --mean_file $mean_array \\
+        pyglib ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
                    --log $log --split train --epoch ${params.epoch} \\
                    --batch_size $bs --table $sum --info ${params.info_pc}
         """
