@@ -14,6 +14,7 @@ params.test_set = "../../dataset/stage1_test/*/images/*.png"
 params.thalassa = 0
 params.info_pc = "../../intermediary_files/Data/train_test.csv"
 
+INFO_TAB = file(params.info_pc)
 FOLDS_PATH_GLOB = params.input_f + "/Slide_*"
 INPUT_F = file(params.input_f)
 FOLDS_POSSIBLE = file(FOLDS_PATH_GLOB, type: 'dir', followLinks: true)
@@ -166,6 +167,9 @@ process FindingP1P2 {
         afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
         maxForks 2
     }
+    if( params.thalassa == 1 ){
+        queue "cuda.q"
+    }
     input:
     file name from NAME_
     file(log) from BEST_G_LOG .collect()
@@ -188,7 +192,7 @@ process FindingP1P2 {
         """
         PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
         function pyglib {
-            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/python \$@
         }
         pyglib $py --path $path --mean_file $mean_array --name $name\\
                    --output ${name}__onTrainingSet
@@ -217,6 +221,7 @@ process ReTraining {
     file sum from SUMMARY_TRAIN
     val bs from BATCH_SIZE
     file py from MODEL_RETRAIN
+    file tab from INFO_TAB
 
     output:
     file "$log" into BEST_LOG_FINAL
@@ -226,7 +231,7 @@ process ReTraining {
         """
         python ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
                    --log $log --split train --epoch ${params.epoch} \\
-                   --batch_size $bs --table $sum --info ${params.info_pc}
+                   --batch_size $bs --table $sum --info $tab
         """
     }
     else {
