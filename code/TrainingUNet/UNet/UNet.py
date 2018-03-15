@@ -179,7 +179,7 @@ if __name__== "__main__":
     parser.add_option('--unet', dest="unet", type="int")
     parser.add_option('--seed', dest="seed", type="int")
     parser.add_option('--epoch', dest="epoch", type="int")
-    parser.add_option('--threads', dest="THREADS", default=100, type="int")
+    parser.add_option('--threads', dest="THREADS", default=50, type="int")
     parser.add_option('--mean_file', dest="mean_file", type="str")
 
     (options, args) = parser.parse_args()

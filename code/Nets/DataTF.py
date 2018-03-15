@@ -60,7 +60,8 @@ class DataReader(ConvolutionalNeuralNetwork):
         else:
             self.SUB_MEAN = False
 
-        self.sess = tf.InteractiveSession(config=tf.ConfigProto(log_device_placement=True))
+#        self.sess = tf.InteractiveSession(config=tf.ConfigProto(log_device_placement=False))
+        self.sess = tf.InteractiveSession()
 
         self.sess.as_default()
         

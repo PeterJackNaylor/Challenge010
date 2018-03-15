@@ -161,7 +161,14 @@ BEST_T2.cross(CSV_FOLDER2).map{it -> it[1][1]}.set{BEST_G_CSV}
 process FindingP1P2 {
     clusterOptions "-S /bin/bash"
     publishDir "../../intermediary_files/Training/${params.name}/Final", overwrite:true
-
+    if( params.real == 1 ) {
+        beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
+        afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
+        maxForks 2
+    }
+    if( params.thalassa == 1 ){
+        queue "cuda.q"
+    }
     input:
     file name from NAME_
     file(log) from BEST_G_LOG .collect()
@@ -174,11 +181,22 @@ process FindingP1P2 {
     file "Hyper_parameter_selection.csv" into HP_SCORE
     file "${name}__onTrainingSet"
     file "__summary_per_image.csv" into SUMMARY_TRAIN
-    """
-    python $py --path $path --mean_file $mean_array --name $name\\
-               --output ${name}__onTrainingSet
-
-    """
+    script:
+    if( params.thalassa == 0 ){
+        """
+        python $py --path $path --mean_file $mean_array --name $name\\
+                   --output ${name}__onTrainingSet
+        """
+    } else {
+        """
+        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
+        function pyglib {
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/python \$@
+        }
+        pyglib $py --path $path --mean_file $mean_array --name $name\\
+                   --output ${name}__onTrainingSet
+        """
+    }
 }
 
 process ReTraining {
@@ -245,10 +263,23 @@ process PredictTestSet {
     output:
     file "${params.name}_sampleTest"
     file "${params.name}_PredFile.csv"
-    """
-    python $py --mean_file $mean_array --hp $hp \\
-               --name $name --output_csv ${params.name}_PredFile.csv \\
-               --output_sample ${params.name}_sampleTest
-    """
+    script:
+    if( params.thalassa == 0 ){
+        """
+        python $py --mean_file $mean_array --hp $hp \\
+                   --name $name --output_csv ${params.name}_PredFile.csv \\
+                   --output_sample ${params.name}_sampleTest
+        """
+    } else {
+        """
+        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
+        function pyglib {
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+        }
+        pyglib $py --mean_file $mean_array --hp $hp \\
+                   --name $name --output_csv ${params.name}_PredFile.csv \\
+                   --output_sample ${params.name}_sampleTest
+        """
+    }
 
 }
