@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import time
 import pdb
 from optparse import OptionParser
 from UNetValidation import Model_pred
@@ -10,8 +11,9 @@ from utils.UsefulFunctionsCreateRecord import GatherFiles, LoadRGB_GT_QUEUE
 from utils.metrics import AJI_fast, DataScienceBowlMetrics
 from utils.random_utils import CheckOrCreate, UNetAugment
 from utils.Postprocessing import PostProcess
-from skimage.io import imread
-from skimage import measure
+from skimage.io import imread, imsave
+from skimage import measure, img_as_ubyte
+from UNetTest import GetHP
 
 def remove_elmement(l1, l2):
     """
@@ -76,22 +78,36 @@ def GeneratePossibleImages(tab, var_name, list_img, dic, mod):
             imgs.append(sub_img)
             labs.append(sub_lab)
     return imgs, labs
+def timeit(method):
 
-def ComputeScore(name, dic, mod):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+
+        print '%r %2.2f sec' % \
+              (method.__name__, te-ts)
+        return result
+
+    return timed
     
-    pdb.set_trace()
+@timeit
+def ComputeScore(name, dic, mod):
     key = [k for k in dic.keys() if name in k][0]
     pred_mod = mod.pred(key) 
     lbl_path = dic[key]
     lbl = imread(lbl_path)
     S = PostProcess(pred_mod[0,:,:,1], mod.P1, mod.P2)
     G = measure.label(lbl)
+    imsave(name + "check.png", img_as_ubyte(pred_mod[0,:,:,1]))
     return DataScienceBowlMetrics(G, S)[0]
 
 def ValidationDomaine(tab, var_name, list_img, dic, mod):
     tab = tab[tab['train'] == 1][tab['test'] == 1]
     f = lambda x: ComputeScore(x.name, dic, mod)
-    tab["DSB_step_0"] = tab.apply(f, axis=1)
+    tab[var_name] = tab['DSB'].copy()
+    tab['DSB'] = tab.apply(f, axis=1)
+    return tab
 def GenerateFeedDic(imgs, labs, bs, mod):
     n = 92
     imgs = np.array(imgs)
@@ -123,9 +139,18 @@ class Model2(Model_pred):
         self.LearningRateSchedule(self.LEARNING_RATE, self.K, epoch)
         self.optimization(trainable_var)
         self.ExponentialMovingAverage(trainable_var, self.DECAY_EMA)
-        init_op = tf.group(tf.global_variables_initializer(),
-                   tf.local_variables_initializer())
-        self.sess.run(init_op)
+        uninitialized_vars = []
+	for var in tf.global_variables():
+    	    try:
+                self.sess.run(var)
+            except tf.errors.FailedPreconditionError:
+                uninitialized_vars.append(var)
+
+        init_new_vars_op = tf.initialize_variables(uninitialized_vars)
+        
+        # init_op = tf.group(tf.global_variables_initializer(),
+        #            tf.local_variables_initializer())
+        self.sess.run(init_new_vars_op)
         self.regularize_model()
 
         # self.Saver()
@@ -164,7 +189,7 @@ class Model2(Model_pred):
             print('  Mini-batch loss: %.5f \n ') % l
             print('  Max value: %.5f \n ') % np.max(predictions)
             summary_train = ValidationDomaine(summary_train, "DSB_{}".format(step), list_img, dic, self)
-
+            pdb.set_trace()
 if __name__== "__main__":
 
     parser = OptionParser()
@@ -234,6 +259,8 @@ if __name__== "__main__":
                                        MEAN_FILE=MEAN_FILE,
                                        DROPOUT=0.5,
                                        EARLY_STOPPING=10)
+    model.P1 = P1
+    model.P2 = P2
     output_name = LOG + ".csv"
     model.retrain(list_img, dic, table, output_name)
     
