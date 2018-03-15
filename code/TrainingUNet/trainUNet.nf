@@ -190,9 +190,8 @@ process FindingP1P2 {
         """
     } else {
         """
-        PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
         function pyglib {
-            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/python \$@
+            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/bin/python \$@
         }
         pyglib $py --path $path --mean_file $mean_array --name $name\\
                    --output ${name}__onTrainingSet
