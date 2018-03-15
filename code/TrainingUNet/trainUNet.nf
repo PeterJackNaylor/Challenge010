@@ -14,6 +14,7 @@ params.test_set = "../../dataset/stage1_test/*/images/*.png"
 params.thalassa = 0
 params.info_pc = "../../intermediary_files/Data/train_test.csv"
 
+INFO_TAB = file(params.info_pc)
 FOLDS_PATH_GLOB = params.input_f + "/Slide_*"
 INPUT_F = file(params.input_f)
 FOLDS_POSSIBLE = file(FOLDS_PATH_GLOB, type: 'dir', followLinks: true)
@@ -170,9 +171,9 @@ process FindingP1P2 {
     file mean_array from MEAN_ARRAY
 
     output:
-    file "*.csv" into HP_SCORE
+    file "Hyper_parameter_selection.csv" into HP_SCORE
     file "${name}__onTrainingSet"
-    file "${name}__onTrainingSet/*.csv" into SUMMARY_TRAIN
+    file "__summary_per_image.csv" into SUMMARY_TRAIN
     """
     python $py --path $path --mean_file $mean_array --name $name\\
                --output ${name}__onTrainingSet
@@ -200,6 +201,7 @@ process ReTraining {
     file mean_array from MEAN_ARRAY
     file sum from SUMMARY_TRAIN
     val bs from BATCH_SIZE
+    file tab from INFO_TAB
 
     output:
     file into BEST_LOG_FINAL
@@ -209,7 +211,7 @@ process ReTraining {
         """
         python ${params.retrain} --path $path --size_train ${params.size} --mean_file $mean_array \\
                    --log $log --split train --epoch ${params.epoch} \\
-                   --batch_size $bs --table $sum --info ${params.info_pc}
+                   --batch_size $bs --table $sum --info $tab
         """
     }
     else {

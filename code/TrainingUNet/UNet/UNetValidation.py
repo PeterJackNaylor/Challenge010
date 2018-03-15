@@ -145,4 +145,4 @@ if __name__== "__main__":
         df_dic['fp_t_{}'.format(t)] = fp__[:, k]
     tab_values = pd.DataFrame.from_dict(df_dic)
 
-    tab_values.to_csv(join(options.output, '__summary_per_image.csv'), index=False)
+    tab_values.to_csv('__summary_per_image.csv', index=False)

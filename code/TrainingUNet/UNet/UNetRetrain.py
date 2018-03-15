@@ -56,7 +56,6 @@ def ComputeDomainScore(tab, latest_score, to_improve):
    worst = r_domain_scores.argmin()
    return worst, domain_scores
 
-
 def GeneratePossibleImages(domain_int, tab, list_img, dic, mod):
     tab = tab[tab['test'] == 0]
     tab = tab[tab['Group'] == domain_int]
@@ -93,7 +92,8 @@ def GenerateFeedDic(imgs, labs, bs, mod):
 
 
 class Model2(Model):
-    def retrain(self, list_img, dic, output_csv):
+    def retrain(self, list_img, dic, summary_train, output_csv):
+        tab = ElaborateTrainStatistics(summary_train)
         epoch = self.STEPS * self.BATCH_SIZE // self.N_EPOCH
         self.Saver()
         trainable_var = tf.trainable_variables()
