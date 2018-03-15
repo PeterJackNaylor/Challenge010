@@ -179,7 +179,7 @@ process FindingP1P2 {
     file mean_array from MEAN_ARRAY
 
     output:
-    file "Hyper_parameter_selection.csv" into HP_SCORE
+    file "Hyper_parameter_selection.csv" into HP_SCORE, HP_SCORE2
     file "${name}__onTrainingSet"
     file "__summary_per_image.csv" into SUMMARY_TRAIN
     script:
@@ -221,6 +221,7 @@ process ReTraining {
     val bs from BATCH_SIZE
     file py from MODEL_RETRAIN
     file tab from INFO_TAB
+    file hp from HP_SCORE2
 
     output:
     file "$log" into BEST_LOG_FINAL
@@ -230,7 +231,7 @@ process ReTraining {
         """
         python ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
                    --log $log --split train --epoch ${params.epoch} \\
-                   --batch_size $bs --table $sum --info $tab
+                   --batch_size $bs --table $sum --info $tab --hp $hp
         """
     }
     else {
@@ -240,7 +241,7 @@ process ReTraining {
         }
         pyglib ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
                    --log $log --split train --epoch ${params.epoch} \\
-                   --batch_size $bs --table $sum --info ${params.info_pc}
+                   --batch_size $bs --table $sum --info $tab --hp $hp
         """
     }
 }

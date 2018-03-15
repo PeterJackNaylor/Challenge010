@@ -187,6 +187,7 @@ if __name__== "__main__":
     parser.add_option('--mean_file', dest="mean_file", type="str")
     parser.add_option('--table', dest="table", type="str")
     parser.add_option('--info', dest="info", type="str")
+    parser.add_option('--hp', dest="hp", type="str")
 
     (options, args) = parser.parse_args()
 
@@ -195,6 +196,7 @@ if __name__== "__main__":
 
     ## Model parameters
     TFRecord = options.TFRecord
+    P1, P2 = GetHP(options.hp)
     # LEARNING_RATE = options.lr
     BATCH_SIZE = options.bs
     SIZE = (options.size_train, options.size_train)
