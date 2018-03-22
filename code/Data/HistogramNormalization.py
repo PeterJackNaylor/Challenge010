@@ -12,6 +12,7 @@ import pdb
 
 # a reference image needs to be chosen
 reference_image_name = '1b518cd2ea84a389c267662840f3d902d0129fab27696215db2488de6d4316c5.png'
+
 def find_reference_image(in_folder, img_name = reference_image_name):
     matches = []
     for root, dirnames, filenames in os.walk(in_folder):
@@ -22,7 +23,11 @@ def find_reference_image(in_folder, img_name = reference_image_name):
 def get_reference_image(in_folder, filename=reference_image_name): 
     reference_img_names = find_reference_image(in_folder, img_name=filename)
     if len(reference_img_names) == 0:
-        raise ValueError("reference image not found")
+        # raise ValueError("reference image not found")
+        ## I added this so the test set could easily be done
+        print "ValueError: reference image not found, taking the bis. I hope it works as you expect..."
+        reference_img_names = ["/data/users/pnaylor/Challenge010/dataset/stage1_train/1b518cd2ea84a389c267662840f3d902d0129fab27696215db2488de6d4316c5/images/1b518cd2ea84a389c267662840f3d902d0129fab27696215db2488de6d4316c5.png"]
+
     reference_img = skimage.io.imread(reference_img_names[0])
     if reference_img.shape[-1] > 3:
         reference_img = reference_img[:,:,:3]
@@ -84,6 +89,9 @@ if __name__ == '__main__':
         local_output_folder = root.replace(input_folder, output_folder)
         CheckOrCreate(local_output_folder)
         for filename in files:
+            if filename[0] == ".":
+            #if os.path.splitext(filename)[0] == '':
+                continue
             if filename.endswith('_mask.png'):
                 shutil.copy(os.path.join(root, filename), local_output_folder)
             else:

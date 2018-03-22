@@ -13,7 +13,7 @@ class UNet(DataReader):
 
     def init_queue(self, tfrecords_filename):
         self.filename_queue = tf.train.string_input_producer(
-                              [tfrecords_filename], num_epochs=100000)
+                              [tfrecords_filename], num_epochs=1000)
         with tf.device('/cpu:0'):
             self.image, self.annotation = read_and_decode(self.filename_queue, 
                                                           self.IMAGE_SIZE[0], 

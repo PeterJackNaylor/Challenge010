@@ -8,10 +8,9 @@ process fuse_images {
     file "description_table.csv" into DESC_TAB
     """
     #!/usr/bin/env python
-    from Data.patch_img import image_files, masks_dic, fuse, meta_data
+    from Data.patch_img import image_files, masks_dic, fuse, meta_data, unsupervised_groups
     from skimage.io import imsave
     from skimage.measure import label
-
     from os.path import basename
     from pandas import DataFrame
 
@@ -21,6 +20,7 @@ process fuse_images {
         label_name = basename(file.replace('.png', '_mask.png'))
         imsave(label_name, bin_lab)
         meta_data(file, label_name, tab)
+    tab = unsupervised_groups(tab)
     tab.to_csv('description_table.csv')
     """
 }
@@ -68,9 +68,9 @@ process dispatch_into_test_domaine {
     """
     #!/usr/bin/env python
     from pandas import read_csv
-    from Data.patch_img import split_into_domain
+    from Data.patch_img import split_into_domain_test
     tab = read_csv('$tab', index_col=0)
-    split_into_domain(tab)
+    split_into_domain_test(tab)
     """
 }
 
@@ -124,7 +124,7 @@ process OverlayRGB_GT {
 
 
 UNET_MAKE_DATA = file("UNet_Data_Prep.py")
-SPLITS = 3
+SPLITS = 2
 
 process MakeUNetData {
     publishDir "../../intermediary_files/Data/UNetData", overwrite: true
@@ -136,6 +136,21 @@ process MakeUNetData {
     file "data_unet" into TAB2
     """
     python $UNET_MAKE_DATA --input $tab --output data_unet --splits $SPLITS
+    """
+}
+
+DIST_MAKE_DATA = file("Dist_Data_Prep.py")
+
+process MakeDistData {
+    publishDir "../../intermediary_files/Data/UNetData", overwrite: true
+    input:
+    file tab from TAB
+    file UNET_MAKE_DATA
+    val SPLITS
+    output:
+    file "data_dist" into TABDIST
+    """
+    python $DIST_MAKE_DATA --input $tab --output data_dist --splits $SPLITS
     """
 }
 
@@ -152,4 +167,15 @@ process HistogramNormalization {
 	"""
 }
 
+TEST_IMAGES = file("../../dataset/stage1_test/")
 
+process HistogramNormalizationTestSet {
+    publishDir "../../intermediary_files/Data/HistoNorm/TestSet", overwrite:true
+    input: 
+    file _ from TEST_IMAGES
+    output:
+    file "data_unet_histonorm_test"
+    """
+    python $HISTO_NORMALIZATION --input $TEST_IMAGES --output data_unet_histonorm_test
+    """
+}
