@@ -15,6 +15,21 @@ from skimage.io import imread, imsave
 from skimage import measure, img_as_ubyte
 from UNetTest import GetHP
 
+def GetLastCheckPoint(LOG):
+    from glob import glob
+    files = [int(el.split('.meta')[0].split('ckpt-')[-1]) for el in glob(LOG + '/*.meta')]
+    return max(files)
+
+def initialize_uninitialized_vars(sess):
+    from itertools import compress
+    global_vars = tf.global_variables() + tf.local_variables()
+    is_not_initialized = sess.run([~(tf.is_variable_initialized(var))
+                                   for var in global_vars])
+    not_initialized_vars = list(compress(global_vars, is_not_initialized))
+
+    if len(not_initialized_vars):
+        sess.run(tf.variables_initializer(not_initialized_vars)) 
+
 def remove_elmement(l1, l2):
     """
     not useful
@@ -92,19 +107,23 @@ def timeit(method):
     return timed
     
 @timeit
-def ComputeScore(name, dic, mod):
+def ComputeScore(name, dic, mod, step):
     key = [k for k in dic.keys() if name in k][0]
     pred_mod = mod.pred(key) 
     lbl_path = dic[key]
     lbl = imread(lbl_path)
     S = PostProcess(pred_mod[0,:,:,1], mod.P1, mod.P2)
     G = measure.label(lbl)
-    imsave(name + "check.png", img_as_ubyte(pred_mod[0,:,:,1]))
-    return DataScienceBowlMetrics(G, S)[0]
+    imsave(name + "check_{}.png".format(step), img_as_ubyte(pred_mod[0,:,:,1]))
+    if S.max() > G.max() * 10:
+        score = 0
+    else:
+        score = DataScienceBowlMetrics(G, S)[0]
+    return score
 
-def ValidationDomaine(tab, var_name, list_img, dic, mod):
+def ValidationDomaine(tab, var_name, list_img, dic, mod, step):
     tab = tab[tab['train'] == 1][tab['test'] == 1]
-    f = lambda x: ComputeScore(x.name, dic, mod)
+    f = lambda x: ComputeScore(x.name, dic, mod, step)
     tab[var_name] = tab['DSB'].copy()
     tab['DSB'] = tab.apply(f, axis=1)
     return tab
@@ -134,23 +153,13 @@ def GenerateFeedDic(imgs, labs, bs, mod):
 class Model2(Model_pred):
     def retrain(self, list_img, dic, summary_train, output_csv):
         epoch = self.STEPS * self.BATCH_SIZE // self.N_EPOCH
-        self.Saver()
         trainable_var = tf.trainable_variables()
         self.LearningRateSchedule(self.LEARNING_RATE, self.K, epoch)
+        # self.global_step = tf.Variable(GetLastCheckPoint(self.LOG), trainable=False)
         self.optimization(trainable_var)
         self.ExponentialMovingAverage(trainable_var, self.DECAY_EMA)
-        uninitialized_vars = []
-        for var in tf.global_variables():
-            try:
-                self.sess.run(var)
-            except tf.errors.FailedPreconditionError:
-                uninitialized_vars.append(var)
 
-        init_new_vars_op = tf.initialize_variables(uninitialized_vars)
-        
-        # init_op = tf.group(tf.global_variables_initializer(),
-        #            tf.local_variables_initializer())
-        self.sess.run(init_new_vars_op)
+        initialize_uninitialized_vars(self.sess)
         self.regularize_model()
 
         # self.Saver()
@@ -185,11 +194,11 @@ class Model2(Model_pred):
             print i.strftime('%Y/%m/%d %H:%M:%S: \n ')
             self.summary_writer.add_summary(s, step)                
             print('  Step %d of %d' % (step, steps))
-            print('  Learning rate: %.5f \n') % lr
+            print('  Learning rate: %.10f \n') % lr
             print('  Mini-batch loss: %.5f \n ') % l
-            print('  Max value: %.5f \n ') % np.max(predictions)
-            summary_train = ValidationDomaine(summary_train, "DSB_{}".format(step), list_img, dic, self)
-            pdb.set_trace()
+            summary_train = ValidationDomaine(summary_train, "DSB_{}".format(step), list_img, dic, self, step)
+        self.saver.save(self.sess, self.LOG + '/' + "retrain-model.ckpt", step)
+        summary_train.to_csv('retraining.csv')
 if __name__== "__main__":
 
     parser = OptionParser()
@@ -233,7 +242,7 @@ if __name__== "__main__":
     WEIGHT_DECAY = options.wd 
     N_FEATURES = int(options.log.split('__')[-2])
     WEIGHT_DECAY = float(options.log.split('__')[-3])
-    LEARNING_RATE = float(options.log.split('__')[-4])
+    LEARNING_RATE = float(options.log.split('__')[-4]) / 100
     N_EPOCH = options.epoch
     N_THREADS = options.THREADS
     MEAN_FILE = options.mean_file 
