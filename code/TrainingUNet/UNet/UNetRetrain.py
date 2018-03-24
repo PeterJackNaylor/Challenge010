@@ -140,8 +140,8 @@ class Model2(Model_pred):
         self.optimization(trainable_var)
         self.ExponentialMovingAverage(trainable_var, self.DECAY_EMA)
         uninitialized_vars = []
-	for var in tf.global_variables():
-    	    try:
+        for var in tf.global_variables():
+            try:
                 self.sess.run(var)
             except tf.errors.FailedPreconditionError:
                 uninitialized_vars.append(var)
