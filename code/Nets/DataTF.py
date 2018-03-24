@@ -60,7 +60,8 @@ class DataReader(ConvolutionalNeuralNetwork):
         else:
             self.SUB_MEAN = False
 
-        self.sess = tf.InteractiveSession(config=tf.ConfigProto(log_device_placement=True))
+#        self.sess = tf.InteractiveSession(config=tf.ConfigProto(log_device_placement=False))
+        self.sess = tf.InteractiveSession()
 
         self.sess.as_default()
         
@@ -160,7 +161,8 @@ class DataReader(ConvolutionalNeuralNetwork):
         if len(vec_values) > self.early_stopping_max:
             val_to_beat = vec_values[-(self.early_stopping_max + 1)]
             values_to_check = vec_values[-self.early_stopping_max:]
-            return not ( values_to_check -  val_to_beat > eps ).any()
+            is_one_better = ( values_to_check -  val_to_beat > eps ).any()
+            return not is_one_better
         else:
             return False
 

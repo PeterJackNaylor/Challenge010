@@ -387,7 +387,7 @@ def read_and_decode(filename_queue, IMAGE_HEIGHT, IMAGE_WIDTH,
                                                      batch_size=BATCH_SIZE,
                                                      capacity=100 + 3 * BATCH_SIZE,
                                                      num_threads=N_THREADS,
-                                                     min_after_dequeue=100)
+                                                     min_after_dequeue=30)
         
         return images, annotations
 
