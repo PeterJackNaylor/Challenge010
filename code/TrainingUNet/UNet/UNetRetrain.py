@@ -113,7 +113,7 @@ def timeit(method):
 
     return timed
     
-@timeit
+# @timeit
 def ComputeScore(name, dic, mod, step):
     key = [k for k in dic.keys() if name in k][0]
     pred_mod = mod.pred(key) 
@@ -121,7 +121,7 @@ def ComputeScore(name, dic, mod, step):
     lbl = imread(lbl_path)
     S = PostProcess(pred_mod[0,:,:,1], mod.P1, mod.P2)
     G = measure.label(lbl)
-    imsave(name + "check_{}.png".format(step), img_as_ubyte(pred_mod[0,:,:,1]))
+#    imsave(name + "check_{}.png".format(step), img_as_ubyte(pred_mod[0,:,:,1]))
     if S.max() > G.max() * 10:
         score = 0
     else:
