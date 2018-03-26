@@ -14,6 +14,7 @@ from utils.Postprocessing import PostProcess
 from skimage.io import imread, imsave
 from skimage import measure, img_as_ubyte
 from UNetTest import GetHP
+import os
 
 def GetLastCheckPoint(LOG):
     from glob import glob
@@ -82,17 +83,23 @@ def ComputeDomainScore(tab, latest_score, to_improve):
 
 def GeneratePossibleImages(tab, var_name, list_img, dic, mod):
     tab = tab[tab['train'] == 1][tab['test'] == 1]
-    domain_int = int(tab.groupby('Group').mean()[var_name].argmin())
-    tab = tab[tab['Group'] == domain_int]
+    wgt_tab = 1 - tab.groupby('Group').mean()[var_name]
+    #domain_int = int(tab.groupby('Group').mean()[var_name].argmin())
+    #tab = tab[tab['Group'] == domain_int]
     possible_img = tab.index
     small_list_img = [el for el in list_img if el.split('/')[-1].split('.')[0] in possible_img]
     imgs = []
     labs = []
+    weights = []
     for img in small_list_img:
+        ind = os.path.basename(img).replace('.png', '')
+        gr = tab.loc[ind, "Group"]
+        w = float(wgt_tab.loc[gr])
         for sub_img, sub_lab in LoadRGB_GT_QUEUE(img, dic, mod.IMAGE_SIZE[0], mod.IMAGE_SIZE, True):
             imgs.append(sub_img)
             labs.append(sub_lab)
-    return imgs, labs
+            weights.append(w)
+    return imgs, labs, weights
 def timeit(method):
 
     def timed(*args, **kw):
@@ -127,7 +134,7 @@ def ValidationDomaine(tab, var_name, list_img, dic, mod, step):
     tab[var_name] = tab['DSB'].copy()
     tab['DSB'] = tab.apply(f, axis=1)
     return tab
-def GenerateFeedDic(imgs, labs, bs, mod):
+def GenerateFeedDic(imgs, labs, weights, bs, mod):
     n = 92
     imgs = np.array(imgs)
     labs = np.array(labs)
@@ -137,6 +144,7 @@ def GenerateFeedDic(imgs, labs, bs, mod):
     # maybe add mean subtraction
     batch_img = np.zeros(shape=(bs, mod.IMAGE_SIZE[0] + 2 * n , mod.IMAGE_SIZE[1] + 2 * n, 3), dtype='float')
     batch_lbl = np.zeros(shape=(bs, mod.IMAGE_SIZE[0], mod.IMAGE_SIZE[1], 1), dtype='float')
+    batch_wgt = np.zeros(shape=(bs, 1, 1, 1), dtype='float')
     for i in range(0, n_el, bs):
         if i + bs > n_el:
             index = rand_ord[i::]
@@ -147,10 +155,75 @@ def GenerateFeedDic(imgs, labs, bs, mod):
         for k, j in enumerate(index):
             batch_img[k] = imgs[j] - mod.MEAN_NPY
             batch_lbl[k, :, :, 0] = labs[j, n:-n, n:-n]
-        yield {mod.input_node:batch_img, mod.train_labels_node:batch_lbl}
+            batch_wgt[k, 0, 0, 0] = weights[j]
+        yield {mod.input_node:batch_img, mod.train_labels_node:batch_lbl,
+                                         mod.batch_sample_weight: batch_wgt}
 
 
 class Model2(Model_pred):
+    def init_training_graph(self):
+
+        with tf.name_scope('Evaluation'):
+            self.logits = self.conv_layer_f(self.last, self.logits_weight, strides=[1,1,1,1], scope_name="logits/")
+            self.predictions = tf.argmax(self.logits, axis=3)
+            init_weight = np.reshape(np.ones(self.BATCH_SIZE, dtype='float32'), [self.BATCH_SIZE,1,1,1])
+            self.batch_sample_weight = tf.placeholder_with_default(init_weight,
+                                                                    shape=[self.BATCH_SIZE, 1, 1, 1])
+
+            self.weighted_logits = self.logits * self.batch_sample_weight
+
+            with tf.name_scope('Loss'):
+                self.loss = tf.reduce_mean((tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.weighted_logits,
+                                                                          labels=tf.squeeze(tf.cast(self.train_labels_node, tf.int32), squeeze_dims=[3]),
+                                                                          name="entropy")))
+                tf.summary.scalar("entropy", self.loss)
+
+            with tf.name_scope('Accuracy'):
+
+                LabelInt = tf.squeeze(tf.cast(self.train_labels_node, tf.int64), squeeze_dims=[3])
+                CorrectPrediction = tf.equal(self.predictions, LabelInt)
+                self.accuracy = tf.reduce_mean(tf.cast(CorrectPrediction, tf.float32))
+                tf.summary.scalar("accuracy", self.accuracy)
+
+            with tf.name_scope('Prediction'):
+
+                self.TP = tf.count_nonzero(self.predictions * LabelInt)
+                self.TN = tf.count_nonzero((self.predictions - 1) * (LabelInt - 1))
+                self.FP = tf.count_nonzero(self.predictions * (LabelInt - 1))
+                self.FN = tf.count_nonzero((self.predictions - 1) * LabelInt)
+
+            with tf.name_scope('Precision'):
+
+                self.precision = tf.divide(self.TP, tf.add(self.TP, self.FP))
+                tf.summary.scalar('Precision', self.precision)
+
+            with tf.name_scope('Recall'):
+
+                self.recall = tf.divide(self.TP, tf.add(self.TP, self.FN))
+                tf.summary.scalar('Recall', self.recall)
+
+            with tf.name_scope('F1'):
+
+                num = tf.multiply(self.precision, self.recall)
+                dem = tf.add(self.precision, self.recall)
+                self.F1 = tf.scalar_mul(2, tf.divide(num, dem))
+                tf.summary.scalar('F1', self.F1)
+
+            with tf.name_scope('MeanAccuracy'):
+                
+                Nprecision = tf.divide(self.TN, tf.add(self.TN, self.FN))
+                self.MeanAcc = tf.divide(tf.add(self.precision, Nprecision) ,2)
+                tf.summary.scalar('Performance', self.MeanAcc)
+            #self.batch = tf.Variable(0, name = "batch_iterator")
+
+            self.train_prediction = tf.nn.softmax(self.logits)
+
+            self.test_prediction = tf.nn.softmax(self.logits)
+
+        tf.global_variables_initializer().run()
+
+        print('Computational graph initialised')
+
     def retrain(self, list_img, dic, summary_train, output_csv):
         epoch = self.STEPS * self.BATCH_SIZE // self.N_EPOCH
         trainable_var = tf.trainable_variables()
@@ -176,14 +249,14 @@ class Model2(Model_pred):
             # self.optimizer is replaced by self.training_op for the exponential moving decay
             l_d = 0
             count = 0
-            All_Images, All_lbl = GeneratePossibleImages(summary_train, "DSB", list_img, dic, self)
+            All_Images, All_lbl, All_wgt = GeneratePossibleImages(summary_train, "DSB", list_img, dic, self)
             minimum_number_of_updates = 50
             if len(All_Images) < minimum_number_of_updates:
                 mini_epoch = minimum_number_of_updates // len(All_Images)
 	    else:
                 mini_epoch = 1
             for __ in range(mini_epoch):
-                for f_d in GenerateFeedDic(All_Images, All_lbl, self.BATCH_SIZE, self):
+                for f_d in GenerateFeedDic(All_Images, All_lbl, All_wgt, self.BATCH_SIZE, self):
                     _, l, lr, predictions, s = self.sess.run(
                                 [self.training_op, self.loss, self.learning_rate,
                                  self.train_prediction, self.merged_summary], feed_dict=f_d)

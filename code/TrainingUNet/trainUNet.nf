@@ -5,7 +5,7 @@ params.epoch = 1
 params.train = "UNet/UNet.py"
 params.validation = "UNet/UNetValidation.py"
 params.test = "UNet/UNetTest.py"
-params.retrain = "UNet/UNetRetrain.py"
+params.retrain_py = "UNet/UNetRetrain.py"
 params.size = 212
 params.unet_like = 1
 params.name = "UNet"
@@ -13,6 +13,7 @@ params.real = 0
 params.test_set = "../../dataset/stage1_test/*/images/*.png"
 params.thalassa = 0
 params.info_pc = "../../intermediary_files/Data/train_test.csv"
+params.retrain = 0
 
 INFO_TAB = file(params.info_pc)
 FOLDS_PATH_GLOB = params.input_f + "/Slide_*"
@@ -20,7 +21,7 @@ INPUT_F = file(params.input_f)
 FOLDS_POSSIBLE = file(FOLDS_PATH_GLOB, type: 'dir', followLinks: true)
 NUMBER_OF_FOLDS = FOLDS_POSSIBLE.size() - 1
 MODEL_TRAIN = file(params.train)
-MODEL_RETRAIN = file(params.retrain)
+MODEL_RETRAIN = file(params.retrain_py)
 MODEL_TEST  = file(params.test)
 MODEL_VALID = file(params.validation)
 MINI_EPOCH = 1
@@ -84,7 +85,7 @@ if( params.real == 1 ) {
     BATCH_SIZE = 8
 }
 else {
-    LEARNING_RATE = [0.01, 0.001]
+    LEARNING_RATE = [0.01]
     WEIGHT_DECAY = [0.0005]
     N_FEATURES = [16]
     BATCH_SIZE = 1
@@ -199,52 +200,63 @@ process FindingP1P2 {
     }
 }
 
-process ReTraining {
-    clusterOptions "-S /bin/bash"
-    publishDir "../../intermediary_files/Training_stage_two/${params.name}/Final", overwrite:true
-    if( params.real == 1 ) {
-        beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
-        afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
-    }
-    if( params.thalassa == 1 ){
-        queue "cuda.q"
-        maxForks 2    
-    } else {
-        maxForks 2
-    }
-    input:
-    file name from NAME_
-    file log from BEST_LOG_2
-    file path from INPUT_F
-    file mean_array from MEAN_ARRAY
-    file sum from SUMMARY_TRAIN
-    val bs from BATCH_SIZE
-    file py from MODEL_RETRAIN
-    file tab from INFO_TAB
-    file hp from HP_SCORE2
-
-    output:
-    file "$log" into BEST_LOG_FINAL
-
-    script:
-    if( params.thalassa == 0 ){
-        """
-        python ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
-                   --log $log --split train --epoch ${params.epoch} \\
-                   --batch_size $bs --table $sum --info $tab --hp $hp
-        """
-    }
-    else {
-        """
-        function pyglib {
-            /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/bin/python \$@
+if( params.retrain == 1 ) {
+    process ReTraining {
+        clusterOptions "-S /bin/bash"
+        publishDir "../../intermediary_files/Training_stage_two/${params.name}/Final", overwrite:true
+        if( params.real == 1 ) {
+            beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
+            afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
         }
-        pyglib ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
-                   --log $log --split train --epoch ${params.epoch} \\
-                   --batch_size $bs --table $sum --info $tab --hp $hp
-        """
+        if( params.thalassa == 1 ){
+            queue "cuda.q"
+            maxForks 2    
+        } else {
+            maxForks 2
+        }
+        input:
+        file name from NAME_
+        file logilog from BEST_LOG_2
+        file path from INPUT_F
+        file mean_array from MEAN_ARRAY
+        file sum from SUMMARY_TRAIN
+        val bs from BATCH_SIZE
+        file py from MODEL_RETRAIN
+        file tab from INFO_TAB
+        file hp from HP_SCORE2
+
+        output:
+        file "${logilog}" into BEST_LOG_FINAL
+        file "retraining.csv"
+
+        script:
+        if( params.thalassa == 0 ){
+            """
+            cp -r ${logilog} retrain_${logilog}
+            python ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
+                       --log retrain_${logilog} --split train --epoch ${params.epoch} \\
+                       --batch_size $bs --table $sum --info $tab --hp $hp
+            """
+        }
+        else {
+            """
+            cp -r ${logilog} retrain_${logilog}
+            function pyglib {
+                /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/bin/python \$@
+            }
+            pyglib ${py} --path $path --size_train ${params.size} --mean_file $mean_array \\
+                       --log retrain_${logilog} --split train --epoch ${params.epoch} \\
+                       --batch_size $bs --table $sum --info $tab --hp $hp
+            """
+        }
     }
 }
+else
+{
+     BEST_LOG_FINAL = BEST_LOG_2
+}
+
+
 
 process PredictTestSet {
     clusterOptions "-S /bin/bash"
