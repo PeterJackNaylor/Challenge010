@@ -21,6 +21,8 @@ def find_reference_image(in_folder, img_name = reference_image_name):
     return matches
 
 def get_reference_image(in_folder, filename=reference_image_name): 
+    if in_folder.rfind('test') > 0:
+        in_folder = in_folder[:-len('test')] + 'train'
     reference_img_names = find_reference_image(in_folder, img_name=filename)
     if len(reference_img_names) == 0:
         # raise ValueError("reference image not found")
@@ -83,6 +85,7 @@ if __name__ == '__main__':
     CheckOrCreate(output_folder)
 
     # get reference image
+    print 'input_folder: ', input_folder
     reference_img = get_reference_image(input_folder)
 
     for root, dirs, files in os.walk(input_folder):        

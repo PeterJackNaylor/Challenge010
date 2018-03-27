@@ -154,7 +154,7 @@ process MakeDistData {
     """
 }
 
-HISTO_NORMALIZATION = file("HistogramNormalization.py")
+HISTO_NORMALIZATION = file("HistogramNormalization2.py")
 
 process HistogramNormalization {
 	publishDir "../../intermediary_files/Data/HistoNorm", overwrite:true
