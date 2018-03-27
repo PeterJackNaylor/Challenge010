@@ -24,7 +24,7 @@ P2_list = [0.5]
 
 class Model_pred(Model):
     def pred(self, img_path): 
-        img = imread(img_path)[:,:,0:3].astype("float")
+        img = imread(img_path)[:,:,0:4].astype("float")
         x, y, z = img.shape
         img -= self.MEAN_NPY
         stepSize = UNetAdjust_pixel(img)
@@ -112,7 +112,7 @@ if __name__== "__main__":
         model = Model_pred("", IMAGE_SIZE=(212, 212),
                                LOG=mod,
                                NUM_LABELS=2,
-                               NUM_CHANNELS=3,
+                               NUM_CHANNELS=4,
                                N_FEATURES=N_FEATURES,
                                MEAN_FILE=MEAN_FILE)
         number_test = int(mod.split('-')[-1])

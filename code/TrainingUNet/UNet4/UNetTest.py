@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from glob import glob
-from DistTrain import Model
+from UNet import Model
 import tensorflow as tf
 import numpy as np
 import os
@@ -14,11 +14,10 @@ from optparse import OptionParser
 import pandas as pd
 import os
 from skimage import img_as_ubyte
-from DistValidate import Model_pred
+from UNetValidation import Model_pred
 from skimage.morphology import remove_small_objects
 import pdb
 from skimage.measure import label
-
 def GetHP(csv_path):
     table = pd.read_csv(csv_path, index_col=0)
     ind = table.idxmax()
@@ -48,7 +47,8 @@ if __name__== "__main__":
     for LOG in MODELS:
         model = Model_pred("", BATCH_SIZE=1,
                                IMAGE_SIZE=(212, 212),
-                               NUM_CHANNELS=3,
+                               NUM_LABELS=2,
+                               NUM_CHANNELS=4,
                                LOG=LOG,
                                N_FEATURES=N_FEATURES,
                                N_THREADS=50,
@@ -64,10 +64,7 @@ if __name__== "__main__":
     for key in dic.keys():
         OUT_ID = join(options.output_sample, basename(key).replace('.png', ''))
         CheckOrCreate(OUT_ID)
-        output_dnn = np.mean(np.concatenate(dic[key]), axis=0)
-        output_dnn[output_dnn < 0] = 0
-        output_dnn = output_dnn.astype(int)
-        dic_prob[key] = output_dnn 
+        dic_prob[key] = np.mean(np.concatenate(dic[key]), axis=0)[:,:,1] 
         dic_final_pred[key] = PostProcess(dic_prob[key], P1, P2)
         # dic_final_pred[key] = (dic_prob[key] > P2).astype('uint8')
         dic_final_pred[key] = label(dic_final_pred[key])
@@ -82,7 +79,7 @@ if __name__== "__main__":
         imsave(join(OUT_ID, "colored_pred.png"), color_bin(dic_final_pred[key])) 
         imsave(join(OUT_ID, "output_DNN_mean.png"), img_as_ubyte(dic_prob[key]))
         for k, el in enumerate(dic[key]):
-            imsave(join(OUT_ID, "output_DNN_{}.png").format(k), el[0,:,:].astype('uint8')) 
+            imsave(join(OUT_ID, "output_DNN_{}.png").format(k), img_as_ubyte(el[0,:,:,1])) 
         imsave(join(OUT_ID, "contours_pred.png"), Overlay_with_pred(key, dic_final_pred[key], color_cont).astype('uint8'))
 
 

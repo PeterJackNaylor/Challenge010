@@ -19,7 +19,11 @@ def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
 def LoadRGB_GT_QUEUE(imgpath, dic, stepSize, windowSize, unet):
-    img = imread(imgpath)[:,:,0:3]
+    ### modify so that it figures out by itself how many channels between 3 and 4
+    img = imread(imgpath)
+    if img.shape[2] == 4:
+        if np.std(img[:,:,3]) < 1 :
+            img = img[:,:,0:3]
     label = imread(dic[imgpath])
     if unet:
         img = UNetAugment(img)
