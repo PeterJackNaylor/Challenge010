@@ -4,7 +4,7 @@ process fuse_images {
     publishDir "../../intermediary_files/Data/labels", overwrite:true
 
     output:
-    file "*_mask.png" into Labels
+    file "*_mask.png"
     file "description_table.csv" into DESC_TAB
     """
     #!/usr/bin/env python
@@ -133,7 +133,7 @@ process MakeUNetData {
     file UNET_MAKE_DATA
     val SPLITS
     output:
-    file "data_unet" into TAB2
+    file "data_unet" into TAB2, TAB_UNET
     """
     python $UNET_MAKE_DATA --input $tab --output data_unet --splits $SPLITS
     """
@@ -161,7 +161,7 @@ process HistogramNormalization {
 	input: 
 	file unet_folder from TAB2
 	output:
-	file "data_unet_histonorm"
+	file "data_unet_histonorm" into TAB_HISTO
 	"""
 	python $HISTO_NORMALIZATION --input $unet_folder --output data_unet_histonorm
 	"""
@@ -174,8 +174,35 @@ process HistogramNormalizationTestSet {
     input: 
     file _ from TEST_IMAGES
     output:
-    file "data_unet_histonorm_test"
+    file "data_unet_histonorm_test" into HistogramTestImages
     """
     python $HISTO_NORMALIZATION --input $TEST_IMAGES --output data_unet_histonorm_test
+    """
+}
+
+FUSE4 = file('fuse4.py')
+
+process Fuse4_train {
+    publishDir "../../intermediary_files/Data/fuse4/TrainSet"
+    input:
+    file fold1 from TAB_UNET
+    file fold2 from TAB_HISTO
+    output:
+    file "data_fuse4"
+    """
+    python $FUSE4 --train 0 --original $fold1 --norm $fold2 --output data_fuse4
+    cp -r $fold1/GT_* data_fuse4/
+    """
+}
+
+process Fuse4_test {
+    publishDir "../../intermediary_files/Data/fuse4/TestSet"
+    input:
+    file _ from TEST_IMAGES
+    file __ from HistogramTestImages
+    output:
+    file "data_fuse4_test"
+    """
+    python $FUSE4 --train 1 --original $_ --norm $__ --output data_fuse4_test
     """
 }

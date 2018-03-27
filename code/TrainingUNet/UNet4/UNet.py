@@ -216,7 +216,7 @@ if __name__== "__main__":
                                        BATCH_SIZE=BATCH_SIZE,
                                        IMAGE_SIZE=SIZE,
                                        NUM_LABELS=2,
-                                       NUM_CHANNELS=3,
+                                       NUM_CHANNELS=4,
                                        STEPS=N_ITER_MAX,
                                        LRSTEP=LRSTEP,
                                        N_PRINT=N_TRAIN_SAVE,
@@ -228,7 +228,7 @@ if __name__== "__main__":
                                        N_THREADS=N_THREADS,
                                        MEAN_FILE=MEAN_FILE,
                                        DROPOUT=0.5,
-                                       EARLY_STOPPING=40)
+                                       EARLY_STOPPING=20)
 
     list_img, dic = GatherFiles(options.path, options.test, "test")
     output_name = LOG + ".csv"
