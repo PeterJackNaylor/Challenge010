@@ -26,7 +26,7 @@ def get_reference_image(in_folder, filename=reference_image_name):
         # raise ValueError("reference image not found")
         ## I added this so the test set could easily be done
         print "ValueError: reference image not found, taking the bis. I hope it works as you expect..."
-        reference_img_names = ["/data/users/pnaylor/Challenge010/dataset/stage1_train/1b518cd2ea84a389c267662840f3d902d0129fab27696215db2488de6d4316c5/images/1b518cd2ea84a389c267662840f3d902d0129fab27696215db2488de6d4316c5.png"]
+        reference_img_names = ["/home/walter/Challenge010/dataset/stage1_train/1b518cd2ea84a389c267662840f3d902d0129fab27696215db2488de6d4316c5/images/1b518cd2ea84a389c267662840f3d902d0129fab27696215db2488de6d4316c5.png"]
 
     reference_img = skimage.io.imread(reference_img_names[0])
     if reference_img.shape[-1] > 3:
