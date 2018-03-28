@@ -5,7 +5,10 @@ import numpy as np
 import pdb
 
 def ComputeMean(img_path):
-    img = imread(img_path)[:,:,0:3]
+    img = imread(img_path)
+    if img.shape[2] == 4:
+        if np.std(img[:,:,3]) < 1 :
+            img = img[:,:,0:3]
     return np.mean(img, axis=(0, 1))
 
 if __name__== "__main__":

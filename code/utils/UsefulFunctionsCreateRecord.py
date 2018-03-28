@@ -55,7 +55,7 @@ def CreateTFRecord(OUTNAME, PATH, FOLD_TEST, SIZE,
             n_samples += 1
             height_img = img.shape[0]
             width_img = img.shape[1]
-
+            channels = img.shape[2]
             height_mask = annotation.shape[0]
             width_mask = annotation.shape[1]
           
@@ -67,6 +67,7 @@ def CreateTFRecord(OUTNAME, PATH, FOLD_TEST, SIZE,
             example = tf.train.Example(features=tf.train.Features(feature={
                   'height_img': _int64_feature(height_img),
                   'width_img': _int64_feature(width_img),
+                  'depth_channels': _int64_feature(channels),
                   'height_mask': _int64_feature(height_mask),
                   'width_mask': _int64_feature(width_mask),
                   'image_raw': _bytes_feature(img_raw),
@@ -178,7 +179,7 @@ def Blur(image, sigma, channels=1):
         return out
 
 
-def RandomBlur(image, label, p):
+def RandomBlur(image, label, p, channels=3):
     with tf.name_scope("RandomBlur"):
         coin_blur = coin_flip(p)
         start, end = 0, 3
@@ -192,12 +193,16 @@ def RandomBlur(image, label, p):
             check = tf.reshape(tf.equal(nsig, sigma_try), [])
             apply_f = tf.logical_and(coin_blur,check)
             # apply_f = tf.reshape(apply_f, [])
-            image = tf.cond(apply_f, lambda: Blur(image, sigma_list[i], channels=3)
+            image = tf.cond(apply_f, lambda: Blur(image, sigma_list[i], channels=channels)
                                    , lambda: image)
         return image, label
 
-def ChangeBrightness(image, delta):
+def ChangeBrightness(image, delta, channels=3):
     with tf.name_scope("ChangeBrightness"):
+        x, y, z = return_shape(image)
+        if channels == 4:
+            channel4 = tf.slice(image, [0,0,3], [-1,-1,4])
+            image = tf.slice(image, [0,0,0], [-1,-1,3])
         hsv = tf.image.rgb_to_hsv(image)
         first_channel = hsv[:,:,0:2]
         hsv2 = hsv[:,:,2]
@@ -205,15 +210,18 @@ def ChangeBrightness(image, delta):
         hsv2_aug = tf.clip_by_value(hsv2 + num, 0., 255.)
         hsv2_exp = tf.expand_dims(hsv2_aug, 2)
         hsv_new = tf.concat([first_channel, hsv2_exp], 2)
+        new_rgb = tf.image.hsv_to_rgb(hsv_new)
+        if channels == 4:
+            new_rgb = tf.concat([new_rgb, channel4], axis=2)
+        new_rgb = tf.reshape(new_rgb, [x, y, channels])
+        return new_rgb
 
-        return tf.image.hsv_to_rgb(hsv_new)
-
-def RandomBrightness(image, label, p):
+def RandomBrightness(image, label, p, channels=3):
     with tf.name_scope("RandomBrightness"):
         coin_hue = coin_flip(p)
         delta = tf.truncated_normal([1], mean=0.0, stddev=0.1,
                                   dtype=tf.float32)
-        image = tf.cond(coin_hue, lambda: ChangeBrightness(image, delta)
+        image = tf.cond(coin_hue, lambda: ChangeBrightness(image, delta, channels)
                                 , lambda: image)
         return image, label
 
@@ -313,12 +321,12 @@ def RandomElasticDeformation(image, annotation, p,
                                             , lambda: Identity(image, annotation))
         return image, annotation
 
-def augment(image_f, annotation_f):
+def augment(image_f, annotation_f, channels=3):
     with tf.name_scope("DataAugmentation"):
         image_f, annotation_f = RandomFlip(image_f, annotation_f, 0.5)    
         image_f, annotation_f = RandomRotate(image_f, annotation_f, 0.2)  
-        image_f, annotation_f = RandomBlur(image_f, annotation_f, 0.2)
-        image_f, annotation_f = RandomBrightness(image_f, annotation_f, 0.2)
+        image_f, annotation_f = RandomBlur(image_f, annotation_f, -1.2, channels)
+        image_f, annotation_f = RandomBrightness(image_f, annotation_f, 0.2, channels)
 #        image_f, annotation_f = RandomElasticDeformation(image_f, annotation_f, 0.5, 0.06, 0.12, 1.1)
         return image_f, annotation_f
 
@@ -375,7 +383,7 @@ def read_and_decode(filename_queue, IMAGE_HEIGHT, IMAGE_WIDTH,
         # question linked above.
         image_f = tf.cast(image, tf.float32)
         annotation_f = tf.cast(annotation, tf.float32)
-        image_f1, annotation_f1 = augment(image_f, annotation_f)
+        image_f1, annotation_f1 = augment(image_f, annotation_f, CHANNELS)
         ## crop for unet
         annotation_f1 = annotation_f1[92:-92, 92:-92]
         #annotation_f1 = tf.Print(annotation_f1, [tf.shape(annotation_f1)], "shape before readjusting")

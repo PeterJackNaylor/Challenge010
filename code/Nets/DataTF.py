@@ -55,7 +55,7 @@ class DataReader(ConvolutionalNeuralNetwork):
         if MEAN_FILE is not None:
             self.MEAN_NPY = np.load(MEAN_FILE)
             MEAN_ARRAY = tf.constant(self.MEAN_NPY, dtype=tf.float32) # (3)
-            self.MEAN_ARRAY = tf.reshape(MEAN_ARRAY, [1, 1, 3])
+            self.MEAN_ARRAY = tf.reshape(MEAN_ARRAY, [1, 1, self.NUM_CHANNELS])
             self.SUB_MEAN = True
         else:
             self.SUB_MEAN = False
