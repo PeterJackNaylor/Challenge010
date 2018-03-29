@@ -67,7 +67,6 @@ def CreateTFRecord(OUTNAME, PATH, FOLD_TEST, SIZE,
             example = tf.train.Example(features=tf.train.Features(feature={
                   'height_img': _int64_feature(height_img),
                   'width_img': _int64_feature(width_img),
-                  'depth_channels': _int64_feature(channels),
                   'height_mask': _int64_feature(height_mask),
                   'width_mask': _int64_feature(width_mask),
                   'image_raw': _bytes_feature(img_raw),
