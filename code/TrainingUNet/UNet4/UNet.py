@@ -123,12 +123,19 @@ class Model(UNetBatchNorm):
         threads = tf.train.start_queue_runners(coord=coord)
         early_finish = False
         for step in range(steps):      
+            print step
+            # print "saving images"
             # self.optimizer is replaced by self.training_op for the exponential moving decay
-            _, l, lr, predictions, batch_labels, s = self.sess.run(
-                        [self.training_op, self.loss, self.learning_rate,
+            Xval, _, l, lr, predictions, batch_labels, s = self.sess.run(
+                        [self.input_node, self.training_op, self.loss, self.learning_rate,
                          self.train_prediction, self.train_labels_node,
                          self.merged_summary])
-
+	    #pdb.set_trace()
+            # from skimage.io import imsave
+            #for i in range(Xval.shape[0]):
+            #    for j in range(Xval.shape[3]):
+            #        img = (Xval + self.MEAN_NPY).astype('uint8')
+            #        imsave('step_{}_n_{}_chan_{}_.png'.format(step, i, j), img[i,:,:,j])
             if step % self.N_PRINT == 0:
                 if step != 0:
                     i = datetime.now()

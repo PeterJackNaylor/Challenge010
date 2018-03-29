@@ -397,9 +397,10 @@ def read_and_decode(filename_queue, IMAGE_HEIGHT, IMAGE_WIDTH,
                                                target_width=const_MASK_WIDTH)
         images, annotations = tf.train.shuffle_batch( [resized_image, resized_annotation],
                                                      batch_size=BATCH_SIZE,
-                                                     capacity=100 + 3 * BATCH_SIZE,
-                                                     num_threads=N_THREADS,
-                                                     min_after_dequeue=30)
+                                                     capacity=5000 + 3 * BATCH_SIZE,
+                                                     num_threads=1000000,
+                                                     min_after_dequeue=100,
+                                                     shapes=[[const_IMG_HEIGHT, const_IMG_WIDTH, CHANNELS], [const_MASK_HEIGHT, const_MASK_WIDTH, 1]])
         
         return images, annotations
 
