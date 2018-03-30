@@ -297,6 +297,14 @@ def _parse_function(example_proto, channels=3, HEIGHT=212, WIDTH=212, UNET_x=184
     annotation_f = tf.cast(annotation, tf.float32)
     #return image_f, annotation_f
     img_a, lab_a = augment(image_f, annotation_f, channels)
+    lab_a = lab_a[92:-92, 92:-92]
+    img_a = tf.image.resize_image_with_crop_or_pad(image=img_a,
+                                           target_height=const_IMG_HEIGHT,
+                                           target_width=const_IMG_WIDTH)
+    
+    lab_a = tf.image.resize_image_with_crop_or_pad(image=lab_a,
+                                           target_height=const_MASK_HEIGHT,
+                                           target_width=const_MASK_WIDTH)
     return img_a, lab_a
 
 # Creates a dataset that reads all of the examples from two files, and extracts
