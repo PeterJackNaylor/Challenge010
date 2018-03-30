@@ -59,7 +59,6 @@ def CreateTFRecord(OUTNAME, PATH, FOLD_TEST, SIZE,
             height_mask = annotation.shape[0]
             width_mask = annotation.shape[1]
           
-            print annotation.shape
             original_images.append((img, annotation))
               
             img_raw = img.tostring()
@@ -99,7 +98,6 @@ def CreateTFRecord4(OUTNAME, PATH, FOLD_TEST, SIZE,
             width_mask = annotation.shape[1]
           
             original_images.append((rgb, a_channel, annotation))
-              
             img_raw = rgb.tostring()
             chan4_raw = a_channel.tostring()
             annotation_raw = annotation.tostring()
@@ -430,7 +428,7 @@ def read_and_decode(filename_queue, IMAGE_HEIGHT, IMAGE_WIDTH,
         image_shape = tf.stack([height_img, width_img, CHANNELS])
         annotation_shape = tf.stack([height_mask, width_mask, 1])
         
-        if CHANNELS != 3:
+        if False:
             extra_channel = tf.decode_raw(features['channel_raw'], tf.uint8)
             image = tf.concat([image, extra_channel], 0)
 

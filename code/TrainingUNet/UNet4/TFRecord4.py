@@ -1,5 +1,5 @@
 import sys; print sys.path
-from utils.UsefulFunctionsCreateRecord import CreateTFRecord4
+from utils.UsefulFunctionsCreateRecord import CreateTFRecord
 from utils.ImageTransform import Identity, Flip, Rotation, OutOfFocus, ElasticDeformation, HE_Perturbation, HSV_Perturbation
 import numpy as np
 from optparse import OptionParser
@@ -68,5 +68,5 @@ if __name__ == '__main__':
                                var_he=var_he) 
 
 
-    CreateTFRecord4(OUTNAME, PATH, TEST, SIZE,
+    CreateTFRecord(OUTNAME, PATH, TEST, SIZE,
                    t_l, UNET, SEED, SPLIT=SPLIT)
