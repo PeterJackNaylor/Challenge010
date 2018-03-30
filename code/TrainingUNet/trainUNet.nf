@@ -103,7 +103,7 @@ process TrainModel {
         queue "cuda.q"
         maxForks 2    
     } else {
-        maxForks 1
+        maxForks 3
     }
 
     input:
