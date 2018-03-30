@@ -154,7 +154,7 @@ process MakeDistData {
     """
 }
 
-HISTO_NORMALIZATION = file("HistogramNormalization.py")
+HISTO_NORMALIZATION = file("HistogramNormalization2.py")
 
 process HistogramNormalization {
 	publishDir "../../intermediary_files/Data/HistoNorm", overwrite:true
@@ -166,6 +166,18 @@ process HistogramNormalization {
 	python $HISTO_NORMALIZATION --input $unet_folder --output data_unet_histonorm
 	"""
 }
+
+process HistogramNormalizationDist {
+    publishDir "../../intermediary_files/Data/HistoNormDist", overwrite:true
+    input: 
+    file dist_folder from TABDIST
+    output:
+    file "data_hist_histonorm" into TAB_HISTO
+    """
+    python $HISTO_NORMALIZATION --input $dist_folder --output data_hist_histonorm
+    """
+}
+
 
 TEST_IMAGES = file("../../dataset/stage1_test/")
 
