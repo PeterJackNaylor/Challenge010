@@ -77,6 +77,46 @@ def CreateTFRecord(OUTNAME, PATH, FOLD_TEST, SIZE,
     print "I have written {} images in this record".format(n_samples)
     writer.close()
 
+def CreateTFRecord4(OUTNAME, PATH, FOLD_TEST, SIZE,
+                   TRANSFORM_LIST, UNET, SEED,
+                   SPLIT="train"):
+
+    tfrecords_filename = OUTNAME
+    writer = tf.python_io.TFRecordWriter(tfrecords_filename)
+
+    images, dic_gt = GatherFiles(PATH, FOLD_TEST, SPLIT)
+    original_images = []
+    n_samples = 0
+    for img_path in images:
+        for img, annotation in LoadRGB_GT_QUEUE(img_path, dic_gt, SIZE[0], SIZE, UNET):
+            n_samples += 1
+            height_img = img.shape[0]
+            width_img = img.shape[1]
+            rgb = img[:,:,0:3]
+            a_channel = img[:,:,3]
+            height_mask = annotation.shape[0]
+            width_mask = annotation.shape[1]
+          
+            original_images.append((rgb, a_channel, annotation))
+              
+            img_raw = rgb.tostring()
+            chan4_raw = a_channel.tostring()
+            annotation_raw = annotation.tostring()
+              
+            example = tf.train.Example(features=tf.train.Features(feature={
+                  'height_img': _int64_feature(height_img),
+                  'width_img': _int64_feature(width_img),
+                  'height_mask': _int64_feature(height_mask),
+                  'width_mask': _int64_feature(width_mask),
+                  'image_raw': _bytes_feature(img_raw),
+                  'channel_raw': _bytes_feature(chan4_raw),
+                  'mask_raw': _bytes_feature(annotation_raw)}))
+              
+            writer.write(example.SerializeToString())
+
+    print "I have written {} images in this record".format(n_samples)
+    writer.close()
+
 def coin_flip(p):
     with tf.name_scope("coin_flip"):
         return tf.reshape(tf.less(tf.random_uniform([1],0, 1.0), p), [])
@@ -340,17 +380,31 @@ def read_and_decode(filename_queue, IMAGE_HEIGHT, IMAGE_WIDTH,
 
         _, serialized_example = reader.read(filename_queue)
 
-        features = tf.parse_single_example(
-          serialized_example,
-          # Defaults are not specified since both keys are required.
-          features={
-            'height_img': tf.FixedLenFeature([], tf.int64),
-            'width_img': tf.FixedLenFeature([], tf.int64),
-            'height_mask': tf.FixedLenFeature([], tf.int64),
-            'width_mask': tf.FixedLenFeature([], tf.int64),
-            'image_raw': tf.FixedLenFeature([], tf.string),
-            'mask_raw': tf.FixedLenFeature([], tf.string)
-            })
+        if CHANNELS == 3:
+            features = tf.parse_single_example(
+              serialized_example,
+              # Defaults are not specified since both keys are required.
+              features={
+                'height_img': tf.FixedLenFeature([], tf.int64),
+                'width_img': tf.FixedLenFeature([], tf.int64),
+                'height_mask': tf.FixedLenFeature([], tf.int64),
+                'width_mask': tf.FixedLenFeature([], tf.int64),
+                'image_raw': tf.FixedLenFeature([], tf.string),
+                'mask_raw': tf.FixedLenFeature([], tf.string)
+                })
+        else:
+            features = tf.parse_single_example(
+              serialized_example,
+              # Defaults are not specified since both keys are required.
+              features={
+                'height_img': tf.FixedLenFeature([], tf.int64),
+                'width_img': tf.FixedLenFeature([], tf.int64),
+                'height_mask': tf.FixedLenFeature([], tf.int64),
+                'width_mask': tf.FixedLenFeature([], tf.int64),
+                'image_raw': tf.FixedLenFeature([], tf.string),
+                'channel_raw': tf.FixedLenFeature([], tf.string),
+                'mask_raw': tf.FixedLenFeature([], tf.string)
+                })
 
         height_img = tf.cast(features['height_img'], tf.int32)
         width_img = tf.cast(features['width_img'], tf.int32)
@@ -375,6 +429,11 @@ def read_and_decode(filename_queue, IMAGE_HEIGHT, IMAGE_WIDTH,
         image_shape = tf.stack([height_img, width_img, CHANNELS])
         annotation_shape = tf.stack([height_mask, width_mask, 1])
         
+        if CHANNELS != 3:
+            extra_channel = tf.decode_raw(features['channel_raw'], tf.uint8)
+            image = tf.concat([image, extra_channel], 0)
+
+
         image = tf.reshape(image, image_shape)
         annotation = tf.reshape(annotation, annotation_shape)
         # Random transformations can be put here: right before you crop images

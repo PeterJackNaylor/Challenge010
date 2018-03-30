@@ -14,6 +14,8 @@ params.test_set = "../../dataset/stage1_test/*/images/*.png"
 params.thalassa = 0
 params.info_pc = "../../intermediary_files/Data/train_test.csv"
 params.retrain = 0
+params.tfrecord_py = "TFRecord.py"
+
 
 INFO_TAB = file(params.info_pc)
 FOLDS_PATH_GLOB = params.input_f + "/Slide_*"
@@ -27,7 +29,7 @@ MODEL_VALID = file(params.validation)
 MINI_EPOCH = 1
 INPUT_TEST = Channel.from(file(params.test_set))
 PICK_MODEL = file('PickModel.py')
-TFRECORDS = file('TFRecord.py')
+TFRECORDS = file(params.tfrecord_py)
 COMPUTE_MEAN = file("ComputeMean.py")
 
 // mini epoch is to take advantage of my img deformation and of a cluster
