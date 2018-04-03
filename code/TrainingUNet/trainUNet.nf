@@ -288,7 +288,8 @@ else
                 """
             }
         }
-
+        BEST_LOG_2.map{a, b -> a.split('__')}.into{BEST_PARAMS}
+        
         process FullTrain {
             clusterOptions "-S /bin/bash"
             publishDir "../../intermediary_files/FullTraining/${params.name}", overwrite:true
@@ -310,7 +311,9 @@ else
             set test, file(rec) from TrainRecordsAll
             file mean_array from MEAN_ARRAY
             val bs from BATCH_SIZE
-            set name, lr, wd, nfeat from BEST_LOG_2.split('__')
+            set name, lr, wd, nfeat from BEST_PARAMS
+
+            .split('__')
             output:
             set val("${params.name}__${lr}__${wd}__${nfeat}"), file("${params.name}__${lr}__${wd}__${nfeat}__fold-${test}") into LOG_FOLDER_ALL
             set val("${params.name}__${lr}__${wd}__${nfeat}"), file("${params.name}__${lr}__${wd}__${nfeat}__fold-${test}.csv") into CSV_FOLDER_ALL
