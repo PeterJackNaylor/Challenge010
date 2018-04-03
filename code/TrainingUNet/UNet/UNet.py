@@ -202,6 +202,8 @@ if __name__== "__main__":
     LRSTEP = "10epoch"
     if options.epoch == 1:
         N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE // 5
+    elif options.test > 100:
+        N_TRAIN_SAVE = N_ITER_MAX
     else:
         N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE
     LOG = options.log

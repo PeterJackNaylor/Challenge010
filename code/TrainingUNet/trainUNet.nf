@@ -14,6 +14,8 @@ params.test_set = "../../dataset/stage1_test/*/images/*.png"
 params.thalassa = 0
 params.info_pc = "../../intermediary_files/Data/train_test.csv"
 params.retrain = 0
+params.tfrecord_py = "TFRecord.py"
+params.full_train = 0
 
 INFO_TAB = file(params.info_pc)
 FOLDS_PATH_GLOB = params.input_f + "/Slide_*"
@@ -27,7 +29,7 @@ MODEL_VALID = file(params.validation)
 MINI_EPOCH = 1
 INPUT_TEST = Channel.from(file(params.test_set))
 PICK_MODEL = file('PickModel.py')
-TFRECORDS = file('TFRecord.py')
+TFRECORDS = file(params.tfrecord_py)
 COMPUTE_MEAN = file("ComputeMean.py")
 
 // mini epoch is to take advantage of my img deformation and of a cluster
@@ -103,7 +105,7 @@ process TrainModel {
         queue "cuda.q"
         maxForks 2 
     } else {
-        maxForks 1
+        maxForks 3
     }
 
     input:
@@ -253,11 +255,90 @@ if( params.retrain == 1 ) {
 }
 else
 {
-     BEST_LOG_FINAL = BEST_LOG_2
+     
+
+
+
+    if (params.full_train == 1){
+        process CreateRecordsFullTrain {
+            clusterOptions "-S /bin/bash"
+            input:
+            file py from TFRECORDS
+            file path from INPUT_F
+            val epoch from MINI_EPOCH
+
+            output:
+            set val("1000"), file("${params.name}.tfrecords") into TrainRecordsAll
+            script:
+            if( params.thalassa == 0 ){
+                """
+                python $py --tf_record ${params.name}.tfrecords --path $path \\
+                           --test 1000 --size_train ${params.size} --unet ${params.unet_like} \\
+                           --seed 42 --split train
+                """
+            } else {
+                """
+                PS1=\${PS1:=} CONDA_PATH_BACKUP="" source activate cpu_tf
+                function pyglib {
+                    /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/envs/cpu_tf/bin/python \$@
+                }
+                pyglib $py --tf_record ${params.name}.tfrecords --path $path \\
+                           --test 1000 --size_train ${params.size} --unet ${params.unet_like} \\
+                           --seed 42 --split train
+                """
+            }
+        }
+
+        process FullTrain {
+            clusterOptions "-S /bin/bash"
+            publishDir "../../intermediary_files/FullTraining/${params.name}", overwrite:true
+            
+            if( params.real == 1 ) {
+                beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
+                afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
+            }
+            if( params.thalassa == 1 ){
+                queue "cuda.q"
+                maxForks 2    
+            } else {
+                maxForks 3
+            }
+
+            input:
+            file py from MODEL_TRAIN
+            file path from INPUT_F
+            set test, file(rec) from TrainRecordsAll
+            file mean_array from MEAN_ARRAY
+            val bs from BATCH_SIZE
+            set name, lr, wd, nfeat from BEST_LOG_2.split('__')
+            output:
+            set val("${params.name}__${lr}__${wd}__${nfeat}"), file("${params.name}__${lr}__${wd}__${nfeat}__fold-${test}") into LOG_FOLDER_ALL
+            set val("${params.name}__${lr}__${wd}__${nfeat}"), file("${params.name}__${lr}__${wd}__${nfeat}__fold-${test}.csv") into CSV_FOLDER_ALL
+
+            script:
+            if( params.thalassa == 0 ){
+                """
+                python $py --tf_record $rec --path $path --size_train ${params.size} --mean_file $mean_array \\
+                           --log ${params.name}__${lr}__${wd}__${nfeat}__fold-${test} --split train --epoch ${params.epoch} \\
+                           --batch_size $bs --learning_rate $lr --weight_decay $wd --n_features $nfeat --test $test
+                """
+            }
+            else {
+                """
+                function pyglib {
+                    /share/apps/glibc-2.20/lib/ld-linux-x86-64.so.2 --library-path /share/apps/glibc-2.20/lib:$LD_LIBRARY_PATH:/usr/lib64/:/usr/local/cuda/lib64/:/cbio/donnees/pnaylor/cuda/lib64:/usr/lib64/nvidia /cbio/donnees/pnaylor/anaconda2/bin/python \$@
+                }
+                pyglib $py --tf_record $rec --path $path --size_train ${params.size} --mean_file $mean_array \\
+                           --log ${params.name}__${lr}__${wd}__${nfeat}__fold-${test} --split train --epoch ${params.epoch} \\
+                           --batch_size $bs --learning_rate $lr --weight_decay $wd --n_features $nfeat --test $test
+                """
+            }
+        }
+        BEST_LOG_FINAL = LOG_FOLDER_ALL
+    } else {
+        BEST_LOG_FINAL = BEST_LOG_2
+    }
 }
-
-
-
 process PredictTestSet {
     clusterOptions "-S /bin/bash"
 
@@ -297,3 +378,5 @@ process PredictTestSet {
     }
 
 }
+
+

@@ -61,7 +61,7 @@ def ComputeScores(list_rgb, dic_gt, dic_prob,
         GT = imread(dic_gt[path])
         GT = PostProcess(GT, 1, 0)
         DImg = dic_prob[path]
-	DImg[DImg < 0] = 0
+        DImg[DImg < 0] = 0
         DImg = DImg.astype("uint8")
         S = PostProcess(DImg, p1, p2)
         res_AJI.append(AJI_fast(GT, S))
@@ -151,4 +151,4 @@ if __name__== "__main__":
         df_dic['fp_t_{}'.format(t)] = fp__[:, k]
     tab_values = pd.DataFrame.from_dict(df_dic)
 
-    tab_values.to_csv(join(options.output, '__summary_per_image.csv'), index=False)
+    tab_values.to_csv(join('__summary_per_image.csv', index=False)

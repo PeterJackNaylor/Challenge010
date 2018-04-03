@@ -8,6 +8,7 @@ import os
 from os.path import abspath
 from utils.random_utils import CheckOrCreate, UNetAugment, UNetAdjust
 from utils.UsefulFunctionsCreateRecord import GatherFiles
+from utils.TensorflowDataGen import read_and_decode
 from skimage.io import imread
 import math
 from datetime import datetime
@@ -17,6 +18,17 @@ import pandas as pd
 import os
 
 class Model(UNetBatchNorm):
+    def init_queue(self, tfrecords_filename):
+        with tf.device('/cpu:0'):
+            self.init_data, self.image, self.annotation = read_and_decode(tfrecords_filename,
+                                                                      self.IMAGE_SIZE[0], 
+                                                                      self.IMAGE_SIZE[1],
+                                                                      self.BATCH_SIZE,
+                                                                      self.N_THREADS,
+                                                                      self.NUM_CHANNELS)
+
+        print("Queue initialized")
+
     def test(self, p1, p2, steps):
         loss, roc = 0., 0.
         acc, F1, recall = 0., 0., 0.
@@ -119,16 +131,22 @@ class Model(UNetBatchNorm):
         init_op = tf.group(tf.global_variables_initializer(),
                    tf.local_variables_initializer())
         self.sess.run(init_op)
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(coord=coord)
+        self.sess.run(self.init_data)
         early_finish = False
         for step in range(steps):      
+            print step
+            # print "saving images"
             # self.optimizer is replaced by self.training_op for the exponential moving decay
             _, l, lr, predictions, batch_labels, s = self.sess.run(
                         [self.training_op, self.loss, self.learning_rate,
                          self.train_prediction, self.train_labels_node,
                          self.merged_summary])
-
+	    #pdb.set_trace()
+            # from skimage.io import imsave
+            #for i in range(Xval.shape[0]):
+            #    for j in range(Xval.shape[3]):
+            #        img = (Xval + self.MEAN_NPY).astype('uint8')
+            #        imsave('step_{}_n_{}_chan_{}_.png'.format(step, i, j), img[i,:,:,j])
             if step % self.N_PRINT == 0:
                 if step != 0:
                     i = datetime.now()
@@ -161,8 +179,6 @@ class Model(UNetBatchNorm):
             os.symlink(best_wgt + ".data-00000-of-00001" ,make_it_seem_new + ".data-00000-of-00001")
             os.symlink(best_wgt + ".index" ,make_it_seem_new + ".index")
             os.symlink(best_wgt + ".meta" ,make_it_seem_new + ".meta")
-        coord.request_stop()
-        coord.join(threads)
         data_res.to_csv(output_csv)
         
 

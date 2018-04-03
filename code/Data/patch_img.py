@@ -1,4 +1,3 @@
-from utils.Global_Info import image_files, image_test_files, masks_dic
 from skimage.io import imread
 from skimage import morphology as morp
 from skimage import measure
