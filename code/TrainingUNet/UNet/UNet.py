@@ -156,7 +156,10 @@ class Model(UNetBatchNorm):
                         early_finish = True
                         break
         if not early_finish:
-            best_wgt = np.array(data_res["wgt_path"])[-(self.early_stopping_max + 1)]
+            try:
+                best_wgt = np.array(data_res["wgt_path"])[-(self.early_stopping_max + 1)]
+            except IndexError:
+                best_wgt = np.array(data_res["wgt_path"])[0]
             make_it_seem_new = self.LOG + '/' + "model.ckpt-{}".format(step+10)
             os.symlink(best_wgt + ".data-00000-of-00001" ,make_it_seem_new + ".data-00000-of-00001")
             os.symlink(best_wgt + ".index" ,make_it_seem_new + ".index")
