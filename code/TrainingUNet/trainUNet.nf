@@ -101,7 +101,7 @@ process TrainModel {
     }
     if( params.thalassa == 1 ){
         queue "cuda.q"
-        maxForks 2    
+        maxForks 2 
     } else {
         maxForks 1
     }
