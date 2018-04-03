@@ -1,5 +1,7 @@
 #!/usr/bin/env nextflow
 
+NAME = "stage1"
+
 process fuse_images {
     publishDir "../../intermediary_files/Data/labels", overwrite:true
 
@@ -8,12 +10,14 @@ process fuse_images {
     file "description_table.csv" into DESC_TAB
     """
     #!/usr/bin/env python
-    from Data.patch_img import image_files, masks_dic, fuse, meta_data, unsupervised_groups
+    from Data.patch_img import fuse, meta_data, unsupervised_groups
     from skimage.io import imsave
     from skimage.measure import label
     from os.path import basename
     from pandas import DataFrame
 
+
+    image_files, image_test_files, masks_dic = Global_Param(name = '$NAME')
     tab = DataFrame()
     for file in image_files:
         bin_lab = fuse(file, masks_dic)
