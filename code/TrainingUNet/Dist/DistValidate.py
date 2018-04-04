@@ -61,7 +61,7 @@ def ComputeScores(list_rgb, dic_gt, dic_prob,
         GT = imread(dic_gt[path])
         GT = PostProcess(GT, 1, 0)
         DImg = dic_prob[path]
-	DImg[DImg < 0] = 0
+        DImg[DImg < 0] = 0
         DImg = DImg.astype("uint8")
         S = PostProcess(DImg, p1, p2)
         res_AJI.append(AJI_fast(GT, S))

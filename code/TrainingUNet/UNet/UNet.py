@@ -156,7 +156,10 @@ class Model(UNetBatchNorm):
                         early_finish = True
                         break
         if not early_finish:
-            best_wgt = np.array(data_res["wgt_path"])[-(self.early_stopping_max + 1)]
+            try:
+                best_wgt = np.array(data_res["wgt_path"])[-(self.early_stopping_max + 1)]
+            except IndexError:
+                best_wgt = np.array(data_res["wgt_path"])[0]
             make_it_seem_new = self.LOG + '/' + "model.ckpt-{}".format(step+10)
             os.symlink(best_wgt + ".data-00000-of-00001" ,make_it_seem_new + ".data-00000-of-00001")
             os.symlink(best_wgt + ".index" ,make_it_seem_new + ".index")
@@ -202,6 +205,8 @@ if __name__== "__main__":
     LRSTEP = "10epoch"
     if options.epoch == 1:
         N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE // 5
+    elif options.test > 100:
+        N_TRAIN_SAVE = N_ITER_MAX
     else:
         N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE
     LOG = options.log
@@ -228,7 +233,7 @@ if __name__== "__main__":
                                        N_THREADS=N_THREADS,
                                        MEAN_FILE=MEAN_FILE,
                                        DROPOUT=0.5,
-                                       EARLY_STOPPING=40)
+                                       EARLY_STOPPING=10)
 
     list_img, dic = GatherFiles(options.path, options.test, "test")
     output_name = LOG + ".csv"
