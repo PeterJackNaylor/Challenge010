@@ -168,7 +168,7 @@ process FindingP1P2 {
     if( params.real == 1 ) {
         beforeScript "source \$HOME/CUDA_LOCK/.whichNODE"
         afterScript "source \$HOME/CUDA_LOCK/.freeNODE"
-        maxForks 2
+        maxForks 1
     }
     if( params.thalassa == 1 ){
         queue "cuda.q"
@@ -288,8 +288,7 @@ else
                 """
             }
         }
-        BEST_LOG_2.map{a, b -> a.split('__')}.into{BEST_PARAMS}
-        
+        BEST_LOG_2.map{ a -> a.name.split('__')}.map{ it -> [it[0], it[1], it[2], it[3]]}.unique().set{BEST_PARAMS}
         process FullTrain {
             clusterOptions "-S /bin/bash"
             publishDir "../../intermediary_files/FullTraining/${params.name}", overwrite:true
@@ -313,7 +312,6 @@ else
             val bs from BATCH_SIZE
             set name, lr, wd, nfeat from BEST_PARAMS
 
-            .split('__')
             output:
             set val("${params.name}__${lr}__${wd}__${nfeat}"), file("${params.name}__${lr}__${wd}__${nfeat}__fold-${test}") into LOG_FOLDER_ALL
             set val("${params.name}__${lr}__${wd}__${nfeat}"), file("${params.name}__${lr}__${wd}__${nfeat}__fold-${test}.csv") into CSV_FOLDER_ALL
