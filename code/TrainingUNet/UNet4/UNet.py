@@ -63,7 +63,7 @@ class Model(UNetBatchNorm):
     def Validation(self, list_img, dic, step, early_stoping_max=10):
         l, acc, F1, recall, precision, meanacc = [], [], [], [], [], []
         for img_path in list_img:
-            img = imread(img_path)[:,:,0:3].astype("float")
+            img = imread(img_path)[:,:,0:4].astype("float")
             img -= self.MEAN_NPY
             img = UNetAdjust(img)
             img = UNetAugment(img)
@@ -134,7 +134,6 @@ class Model(UNetBatchNorm):
         self.sess.run(self.init_data)
         early_finish = False
         for step in range(steps):      
-            print step
             # print "saving images"
             # self.optimizer is replaced by self.training_op for the exponential moving decay
             _, l, lr, predictions, batch_labels, s = self.sess.run(
