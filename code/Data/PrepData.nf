@@ -172,7 +172,7 @@ process HistogramNormalizationDist {
     input: 
     file dist_folder from TABDIST
     output:
-    file "data_hist_histonorm" into TAB_HISTO
+    file "data_hist_histonorm" into TAB_HISTO_DIST
     """
     python $HISTO_NORMALIZATION --input $dist_folder --output data_hist_histonorm
     """

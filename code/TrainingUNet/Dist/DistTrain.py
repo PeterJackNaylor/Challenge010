@@ -199,7 +199,7 @@ if __name__== "__main__":
                                        N_THREADS=N_THREADS,
                                        MEAN_FILE=MEAN_FILE,
                                        DROPOUT=0.5,
-                                       EARLY_STOPPING=10)
+                                       EARLY_STOPPING=40)
     
     list_img, dic = GatherFiles(options.path, options.test, "test")
     output_name = LOG + ".csv"

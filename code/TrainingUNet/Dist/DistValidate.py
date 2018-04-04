@@ -19,7 +19,7 @@ import pdb
 from sklearn.metrics import f1_score
 from progressbar import ProgressBar
 
-P1_List = [1] # range(0, 8)
+P1_List = [0, 1, 2] # range(0, 8)
 P2_list = [0.5] #[0.5, 1.]
 
 class Model_pred(Model):
@@ -151,4 +151,4 @@ if __name__== "__main__":
         df_dic['fp_t_{}'.format(t)] = fp__[:, k]
     tab_values = pd.DataFrame.from_dict(df_dic)
 
-    tab_values.to_csv(join(options.output, '__summary_per_image.csv'), index=False)
+    tab_values.to_csv('__summary_per_image.csv', index=False)
