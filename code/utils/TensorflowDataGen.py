@@ -312,12 +312,13 @@ def _parse_function(example_proto, channels=3, HEIGHT=212, WIDTH=212, UNET_x=184
 # filenames = ["/var/data/file1.tfrecord", "/var/data/file2.tfrecord"]
 
 def read_and_decode(filename_queue, IMAGE_HEIGHT, IMAGE_WIDTH,
-                    BATCH_SIZE, N_THREADS, CHANNELS=3):
+                    BATCH_SIZE, N_THREADS, CHANNELS=3, buffers=2000):
     dataset = tf.data.TFRecordDataset(filename_queue)
     def f_parse(x):
         return _parse_function(x, CHANNELS, IMAGE_HEIGHT, IMAGE_WIDTH)
-    dataset = dataset.map(f_parse)
-    dataset = dataset.shuffle(buffer_size=2000)
+    dataset = dataset.map(f_parse,  num_parallel_calls=N_THREADS)
+    dataset = dataset.prefetch(buffer_size=buffers / 100) 
+    dataset = dataset.shuffle(buffer_size=buffers)
     dataset = dataset.batch(BATCH_SIZE)
     dataset = dataset.repeat(100)
     iterator = dataset.make_one_shot_iterator()
