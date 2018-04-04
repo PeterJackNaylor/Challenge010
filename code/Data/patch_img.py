@@ -11,7 +11,7 @@ from sklearn import cluster
 from sklearn import preprocessing
 import pandas as pd
 
-NCLUST = 6
+NCLUST = 8
 
 def fuse(el, dic):
     """
