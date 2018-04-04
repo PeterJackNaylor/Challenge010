@@ -206,7 +206,7 @@ if __name__== "__main__":
     if options.epoch == 1:
         N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE // 5
     elif options.test > 100:
-        N_TRAIN_SAVE = N_ITER_MAX
+        N_TRAIN_SAVE = N_ITER_MAX - 1
     else:
         N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE
     LOG = options.log
@@ -233,7 +233,7 @@ if __name__== "__main__":
                                        N_THREADS=N_THREADS,
                                        MEAN_FILE=MEAN_FILE,
                                        DROPOUT=0.5,
-                                       EARLY_STOPPING=10)
+                                       EARLY_STOPPING=40)
 
     list_img, dic = GatherFiles(options.path, options.test, "test")
     output_name = LOG + ".csv"
