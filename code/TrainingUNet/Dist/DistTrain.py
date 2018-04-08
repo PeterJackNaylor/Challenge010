@@ -61,19 +61,22 @@ class Model(UNetDistance):
             acc_tmp, F1_tmp = ComputeValScores(label, test_prediction)
             acc.append(acc_tmp)
             F1.append(F1_tmp)
-        l = np.mean([el if not math.isnan(el)else 0. for el in l])
-        acc = np.mean([el if not math.isnan(el)else 0. for el in acc])
-        F1 = np.mean([el if not math.isnan(el) else 0. for el in F1])
+        if len(list_img) != 0:
+            l = np.mean([el if not math.isnan(el)else 0. for el in l])
+            acc = np.mean([el if not math.isnan(el)else 0. for el in acc])
+            F1 = np.mean([el if not math.isnan(el) else 0. for el in F1])
 
-        summary = tf.Summary()
-        summary.value.add(tag="TestMan/Accuracy", simple_value=acc)
-        summary.value.add(tag="TestMan/Loss", simple_value=l)
-        summary.value.add(tag="TestMan/F1", simple_value=F1)
-        self.summary_test_writer.add_summary(summary, step) 
+            summary = tf.Summary()
+            summary.value.add(tag="TestMan/Accuracy", simple_value=acc)
+            summary.value.add(tag="TestMan/Loss", simple_value=l)
+            summary.value.add(tag="TestMan/F1", simple_value=F1)
+            self.summary_test_writer.add_summary(summary, step) 
 
-        self.summary_test_writer.add_summary(s, step) 
-        print('  Validation loss: %.1f' % l)
-        print('       Accuracy: %1.f%% \n       f1 : %1.f%% \n' % (acc * 100, F1 * 100))
+            self.summary_test_writer.add_summary(s, step) 
+            print('  Validation loss: %.1f' % l)
+            print('       Accuracy: %1.f%% \n       f1 : %1.f%% \n' % (acc * 100, F1 * 100))
+        else:
+            l, acc, F1 = 0, 0, 0
         self.saver.save(self.sess, self.LOG + '/' + "model.ckpt", step)
         wgt_path = self.LOG + '/' + "model.ckpt-{}".format(step)
         return l, acc, F1, wgt_path
