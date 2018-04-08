@@ -16,6 +16,7 @@ import pdb
 from optparse import OptionParser
 import pandas as pd
 import os
+from sklearn.metrics import confusion_matrix
 
 class Model(UNetBatchNorm):
     def init_queue(self, tfrecords_filename):
@@ -29,41 +30,48 @@ class Model(UNetBatchNorm):
 
         print("Queue initialized")
 
-    def test(self, p1, p2, steps):
-        loss, roc = 0., 0.
-        acc, F1, recall = 0., 0., 0.
-        precision, jac, AJI = 0., 0., 0.
-        init_op = tf.group(tf.global_variables_initializer(),
-                   tf.local_variables_initializer())
-        self.sess.run(init_op)
-        self.Saver()
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(coord=coord)
+    def init_training_graph(self):
+        with tf.name_scope('Evaluation'):
+            self.logits = self.conv_layer_f(self.last, self.logits_weight, strides=[1,1,1,1], scope_name="logits/")
+            self.predictions = tf.argmax(self.logits, axis=3)
+            
+            with tf.name_scope('Loss'):
+                self.loss = tf.reduce_mean((tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.logits,
+                                                                          labels=tf.squeeze(tf.cast(self.train_labels_node, tf.int32), squeeze_dims=[3]),
+                                                                          name="entropy")))
+                tf.summary.scalar("entropy", self.loss)
 
-        for step in range(steps):  
-            feed_dict = {self.is_training: False} 
-            l,  prob, batch_labels = self.sess.run([self.loss, self.train_prediction,
-                                                               self.train_labels_node], feed_dict=feed_dict)
-            loss += l
-            out = ComputeMetrics(prob[0,:,:,1], batch_labels[0,:,:,0], p1, p2)
-            acc += out[0]
-            roc += out[1]
-            jac += out[2]
-            recall += out[3]
-            precision += out[4]
-            F1 += out[5]
-            AJI += out[6]
-        coord.request_stop()
-        coord.join(threads)
-        loss, acc, F1 = np.array([loss, acc, F1]) / steps
-        recall, precision, roc = np.array([recall, precision, roc]) / steps
-        jac, AJI = np.array([jac, AJI]) / steps
-        return loss, acc, F1, recall, precision, roc, jac, AJI
+            with tf.name_scope('Accuracy'):
+
+                LabelInt = tf.squeeze(tf.cast(self.train_labels_node, tf.int64), squeeze_dims=[3])
+                CorrectPrediction = tf.equal(self.predictions, LabelInt)
+                self.accuracy = tf.reduce_mean(tf.cast(CorrectPrediction, tf.float32))
+                tf.summary.scalar("accuracy", self.accuracy)
+
+            with tf.name_scope('ClassPrediction'):
+                flat_LabelInt = tf.reshape(LabelInt, [-1])
+                flat_predictions = tf.reshape(self.predictions, [-1])
+                self.cm = tf.confusion_matrix(flat_LabelInt, flat_predictions, self.NUM_LABELS)
+                flatten_confusion_matrix = tf.reshape(self.cm, [-1])
+                total = tf.reduce_sum(self.cm)
+                confusion_image = tf.reshape( tf.cast( self.cm, tf.float32),
+                                            [1, self.NUM_LABELS, self.NUM_LABELS, 1])
+                tf.summary.image('confusion', confusion_image)
+
+            self.train_prediction = tf.nn.softmax(self.logits)
+
+            self.test_prediction = self.train_prediction
+
+        tf.global_variables_initializer().run()
+
+        print('Computational graph initialised')
 
     def Validation(self, list_img, dic, step, early_stoping_max=10):
-        l, acc, F1, recall, precision, meanacc = [], [], [], [], [], []
+        l, acc = [], []
+        cm = np.zeros((self.NUM_LABELS, self.NUM_LABELS))
+
         for img_path in list_img:
-            img = imread(img_path)[:,:,0:4].astype("float")
+            img = imread(img_path)[:,:,0:3].astype("float")
             img -= self.MEAN_NPY
             img = UNetAdjust(img)
             img = UNetAugment(img)
@@ -75,38 +83,48 @@ class Model(UNetBatchNorm):
             feed_dict = {self.input_node: Xval,
                          self.train_labels_node: Yval,
                          self.is_training: False}
-            l_tmp, acc_tmp, F1_tmp, recall_tmp, precision_tmp, meanacc_tmp, s = self.sess.run([self.loss, 
-                                                                                        self.accuracy, self.F1,
-                                                                                        self.recall, self.precision,
-                                                                                        self.MeanAcc, self.merged_summary], feed_dict=feed_dict)
+            l_tmp, acc_tmp, cm_tmp, s = self.sess.run([self.loss, 
+                                                        self.accuracy, self.cm,
+                                                        self.merged_summary], feed_dict=feed_dict)
             l.append(l_tmp)
             acc.append(acc_tmp)
-            F1.append(F1_tmp)
-            recall.append(recall_tmp)
-            precision.append(precision_tmp)
-            meanacc.append(meanacc_tmp)
-        l = np.mean([el if not math.isnan(el)else 0. for el in l])
-        acc = np.mean([el if not math.isnan(el)else 0. for el in acc])
-        F1 = np.mean([el if not math.isnan(el) else 0. for el in F1])
-        recall = np.mean([el if not math.isnan(el) else 0. for el in recall])
-        precision = np.mean([el if not math.isnan(el) else 0. for el in precision])
-        meanacc = np.mean([el if not math.isnan(el) else 0.5 for el in meanacc])
+            cm += cm_tmp
+        if len(list_img) != 0:
+            l = np.mean([el if not math.isnan(el)else 0. for el in l])
+            acc = np.mean([el if not math.isnan(el)else 0. for el in acc])
 
-        summary = tf.Summary()
-        summary.value.add(tag="TestMan/Accuracy", simple_value=acc)
-        summary.value.add(tag="TestMan/Loss", simple_value=l)
-        summary.value.add(tag="TestMan/F1", simple_value=F1)
-        summary.value.add(tag="TestMan/Recall", simple_value=recall)
-        summary.value.add(tag="TestMan/Precision", simple_value=precision)
-        summary.value.add(tag="TestMan/Performance", simple_value=meanacc)
-        self.summary_test_writer.add_summary(summary, step) 
 
-        self.summary_test_writer.add_summary(s, step) 
-        print('  Validation loss: %.1f' % l)
-        print('       Accuracy: %1.f%% \n       acc1: %.1f%% \n       recall: %1.f%% \n       prec: %1.f%% \n       f1 : %1.f%% \n' % (acc * 100, meanacc * 100, recall * 100, precision * 100, F1 * 100))
+            summary = tf.Summary()
+            summary.value.add(tag="TestMan/Accuracy", simple_value=acc)
+            summary.value.add(tag="TestMan/Loss", simple_value=l)
+            confusion = tf.Variable(cm, name='confusion' )
+            confusion_image = tf.reshape( tf.cast( confusion, tf.float32),
+                                          [1, self.NUM_LABELS, self.NUM_LABELS, 1])
+            tf.summary.image('confusion', confusion_image)
+            self.summary_test_writer.add_summary(summary, step) 
+
+            self.summary_test_writer.add_summary(s, step) 
+            print('  Validation loss: %.1f' % l)
+            print('       Accuracy: %1.f%% \n \n' % (acc * 100))
+        else:
+            l, acc = 0, 0
+            cm = np.zeros(shape=(self.NUM_LABELS, self.NUM_LABELS))
         self.saver.save(self.sess, self.LOG + '/' + "model.ckpt", step)
         wgt_path = self.LOG + '/' + "model.ckpt-{}".format(step)
-        return l, acc, F1, recall, precision, meanacc, wgt_path
+        return l, acc, cm, wgt_path
+
+    def error_rate(self, predictions, labels, iter):
+        predictions = np.argmax(predictions, 3)
+        labels = labels[:,:,:,0]
+
+        cm = confusion_matrix(labels.flatten(), predictions.flatten(), labels=range(self.NUM_LABELS)).astype(np.float)
+        b, x, y = predictions.shape
+        total = b * x * y
+        acc = cm.diagonal().sum() / total
+        error = 100 - acc
+
+        return error, acc * 100, cm
+
 
     def train(self, list_img, dic, output_csv):
         data_res = pd.DataFrame()
@@ -133,6 +151,7 @@ class Model(UNetBatchNorm):
         self.sess.run(init_op)
         self.sess.run(self.init_data)
         early_finish = False
+        CheckOrCreate("./confusion_matrix_train")
         for step in range(steps):      
             # print "saving images"
             # self.optimizer is replaced by self.training_op for the exponential moving decay
@@ -140,31 +159,23 @@ class Model(UNetBatchNorm):
                         [self.training_op, self.loss, self.learning_rate,
                          self.train_prediction, self.train_labels_node,
                          self.merged_summary])
-	    #pdb.set_trace()
-            # from skimage.io import imsave
-            #for i in range(Xval.shape[0]):
-            #    for j in range(Xval.shape[3]):
-            #        img = (Xval + self.MEAN_NPY).astype('uint8')
-            #        imsave('step_{}_n_{}_chan_{}_.png'.format(step, i, j), img[i,:,:,j])
             if step % self.N_PRINT == 0:
                 if step != 0:
                     i = datetime.now()
                     print i.strftime('%Y/%m/%d %H:%M:%S: \n ')
                     self.summary_writer.add_summary(s, step)                
-                    error, acc, acc1, recall, prec, f1 = self.error_rate(predictions, batch_labels, step)
+                    error, acc, cm_train = self.error_rate(predictions, batch_labels, step)
                     print('  Step %d of %d' % (step, steps))
                     print('  Learning rate: %.5f \n') % lr
-                    print('  Mini-batch loss: %.5f \n       Accuracy: %.1f%% \n       acc1: %.1f%% \n       recall: %1.f%% \n       prec: %1.f%% \n       f1 : %1.f%% \n' % 
-                         (l, acc, acc1, recall, prec, f1))
-                    l, acc, F1, recall, precision, meanacc, wgt_path = self.Validation(list_img, dic, step)
+                    print('  Mini-batch loss: %.5f \n       Accuracy: %.1f%% \n' % 
+                         (l, acc))
+                    l, acc, cm, wgt_path = self.Validation(list_img, dic, step)
                     data_res.loc[step, "loss"] = l
                     data_res.loc[step, "acc"] = acc
-                    data_res.loc[step, "F1"] = F1
-                    data_res.loc[step, "recall"] = recall
-                    data_res.loc[step, "precision"] = precision
-                    data_res.loc[step, "meanacc"] = meanacc
                     data_res.loc[step, "wgt_path"] = abspath(wgt_path)
-                    if self.early_stopping(data_res, "F1"):
+                    np.save("./confusion_matrix_train" + "/cm_{}.npy".format(step), cm_train)
+                    np.save("./confusion_matrix_test" + "/cm_{}.npy".format(step), cm)
+                    if self.early_stopping(data_res, "acc"):
                         best_wgt = np.array(data_res["wgt_path"])[-(self.early_stopping_max + 1)]
                         make_it_seem_new = self.LOG + '/' + "model.ckpt-{}".format(step+10)
                         os.symlink(best_wgt + ".data-00000-of-00001" ,make_it_seem_new + ".data-00000-of-00001")
@@ -230,8 +241,8 @@ if __name__== "__main__":
     model = Model(TFRecord,            LEARNING_RATE=LEARNING_RATE,
                                        BATCH_SIZE=BATCH_SIZE,
                                        IMAGE_SIZE=SIZE,
-                                       NUM_LABELS=2,
-                                       NUM_CHANNELS=4,
+                                       NUM_LABELS=3,
+                                       NUM_CHANNELS=3,
                                        STEPS=N_ITER_MAX,
                                        LRSTEP=LRSTEP,
                                        N_PRINT=N_TRAIN_SAVE,

@@ -1,10 +1,57 @@
 #!/usr/bin/env nextflow
 
-NAME = "stage1"
+NAME = "withexternal"
+
+NeerajData = file("../../external_data/Neeraj")
+TNBCData = file("../../external_data/TNBC_NucleiSegmentation")
+PythonNeeraj = file("ExternalData/ProcessExternalData.py")
+PythonCoelho = file("ExternalData/Coelho.py")
+CoelhoData = file("../../external_data/Coelho2009_ISBI_NuclearSegmentation")
+
+process AddNeeraj {
+    publishDir "../../dataset/withexternal_train"
+
+    input:
+    file fold from NeerajData
+    output:
+    file "*" into NeerajDone
+    """
+    python $PythonNeeraj --input $fold
+    """
+}
+
+process AddTNBC {
+    publishDir "../../dataset/withexternal_train"
+
+    input:
+    file fold from TNBCData
+    output:
+    file "*" into TNBCDone
+    """
+    python $PythonNeeraj --input $fold
+    """
+}
+
+process AddCoelho {
+    publishDir "../../dataset/withexternal_train"
+
+    input:
+    file fold from CoelhoData
+    output:
+    file "*" into CoelhoDone
+    """
+    python $PythonCoelho --input $fold
+    """
+}
+
+
+NeerajDone.concat(TNBCDone, CoelhoDone).set{Data}
 
 process fuse_images {
-    publishDir "../../intermediary_files/Data/labels", overwrite:true
+    publishDir "../../intermediary_files/ExtraData/labels", overwrite:true
 
+    input:
+    file _ from Data .collect()
     output:
     file "*_mask.png"
     file "description_table.csv" into DESC_TAB
@@ -15,8 +62,8 @@ process fuse_images {
     from skimage.measure import label
     from os.path import basename
     from pandas import DataFrame
-
-
+    from utils.Global_Info import Global_Param
+    print 'jey'
     image_files, image_test_files, masks_dic = Global_Param(name = '$NAME')
     tab = DataFrame()
     for file in image_files:
@@ -30,14 +77,16 @@ process fuse_images {
 }
 
 process fuse_test_images {
-    publishDir "../../intermediary_files/Data/test/tables", overwrite:true
+    publishDir "../../intermediary_files/ExtraData/test/tables", overwrite:true
 
     output:
     file "description_test_table.csv" into DESC_TEST_TAB
     """
     #!/usr/bin/env python
-    from Data.patch_img import image_test_files, meta_data_test
-
+    from utils.Global_Info import Global_Param
+    image_files, image_test_files, masks_dic = Global_Param(name = '$NAME')
+    
+    from Data.patch_img import meta_data_test
     from os.path import basename
     from pandas import DataFrame
 
@@ -49,7 +98,7 @@ process fuse_test_images {
 }
 
 process dispatch_into_domaine {
-    publishDir "../../intermediary_files/Data/Groups", overwrite:true
+    publishDir "../../intermediary_files/ExtraData/Groups", overwrite:true
     input:
     file tab from DESC_TAB
     output:
@@ -64,7 +113,7 @@ process dispatch_into_domaine {
 }
 
 process dispatch_into_test_domaine {
-    publishDir "../../intermediary_files/Data/test/Groups", overwrite:true
+    publishDir "../../intermediary_files/ExtraData/test/Groups", overwrite:true
     input:
     file tab from DESC_TEST_TAB
     output:
@@ -79,7 +128,7 @@ process dispatch_into_test_domaine {
 }
 
 process FuseTable {
-    publishDir "../../intermediary_files/Data/", overwrite: true
+    publishDir "../../intermediary_files/ExtraData/", overwrite: true
     input:
     file train_tab from DESC_TAB
     file test_tab from DESC_TEST_TAB
@@ -99,7 +148,7 @@ process FuseTable {
 }
 
 process OverlayRGB_GT {
-    publishDir "../../intermediary_files/Data/Overlay", overwrite: true
+    publishDir "../../intermediary_files/ExtraData/Overlay", overwrite: true
     input:
     file train_tab from DESC_TAB
     output:
@@ -131,7 +180,7 @@ UNET_MAKE_DATA = file("UNet_Data_Prep.py")
 SPLITS = 2
 
 process MakeUNetData {
-    publishDir "../../intermediary_files/Data/UNetData", overwrite: true
+    publishDir "../../intermediary_files/ExtraData/UNetData", overwrite: true
     input:
     file tab from TAB
     file UNET_MAKE_DATA
@@ -146,7 +195,7 @@ process MakeUNetData {
 DIST_MAKE_DATA = file("Dist_Data_Prep.py")
 
 process MakeDistData {
-    publishDir "../../intermediary_files/Data/UNetData", overwrite: true
+    publishDir "../../intermediary_files/ExtraData/UNetData", overwrite: true
     input:
     file tab from TAB
     file UNET_MAKE_DATA
@@ -158,27 +207,27 @@ process MakeDistData {
     """
 }
 
-HISTO_NORMALIZATION = file("HistogramNormalization.py")
+HISTO_NORMALIZATION = file("HistogramNormalization2.py")
 
 process HistogramNormalization {
-	publishDir "../../intermediary_files/Data/HistoNorm", overwrite:true
-	input: 
-	file unet_folder from TAB2
-	output:
-	file "data_unet_histonorm" into TAB_HISTO, TAB_HISTO_I3
-	"""
-	python $HISTO_NORMALIZATION --input $unet_folder --output data_unet_histonorm
-	"""
+    publishDir "../../intermediary_files/ExtraData/HistoNorm", overwrite:true
+    input: 
+    file unet_folder from TAB2
+    output:
+    file "data_unet_histonorm" into TAB_HISTO
+    """
+    python $HISTO_NORMALIZATION --input $unet_folder --output data_unet_histonorm
+    """
 }
 
 process HistogramNormalizationDist {
-    publishDir "../../intermediary_files/Data/HistoNormDist", overwrite:true
+    publishDir "../../intermediary_files/ExtraData/HistoNormDist", overwrite:true
     input: 
     file dist_folder from TABDIST
     output:
-    file "data_dist_histonorm" into TAB_HISTO_DIST
+    file "data_hist_histonorm" into TAB_HISTO_DIST
     """
-    python $HISTO_NORMALIZATION --input $dist_folder --output data_dist_histonorm
+    python $HISTO_NORMALIZATION --input $dist_folder --output data_hist_histonorm
     """
 }
 
@@ -186,7 +235,7 @@ process HistogramNormalizationDist {
 TEST_IMAGES = file("../../dataset/stage1_test/")
 
 process HistogramNormalizationTestSet {
-    publishDir "../../intermediary_files/Data/HistoNorm/TestSet", overwrite:true
+    publishDir "../../intermediary_files/ExtraData/HistoNorm/TestSet", overwrite:true
     input: 
     file _ from TEST_IMAGES
     output:
@@ -196,24 +245,10 @@ process HistogramNormalizationTestSet {
     """
 }
 
-UNET3 = file("UNet3.py")
-
-process Contours3 {
-    publishDir "../../intermediary_files/Data/UNet3"
-    input:
-    file _ from TAB_HISTO_I3
-    output:
-    file "data_unet3"
-    """
-    python $UNET3 --input $_ -output data_unet3
-    cp -r $fold1/Slide_* data_unet3/
-    """
-}
-
 FUSE4 = file('fuse4.py')
 
 process Fuse4_train {
-    publishDir "../../intermediary_files/Data/fuse4/TrainSet"
+    publishDir "../../intermediary_files/ExtraData/fuse4/TrainSet"
     input:
     file fold1 from TAB_UNET
     file fold2 from TAB_HISTO
@@ -226,7 +261,7 @@ process Fuse4_train {
 }
 
 process Fuse4_test {
-    publishDir "../../intermediary_files/Data/fuse4/TestSet"
+    publishDir "../../intermediary_files/ExtraData/fuse4/TestSet"
     input:
     file _ from TEST_IMAGES
     file __ from HistogramTestImages
