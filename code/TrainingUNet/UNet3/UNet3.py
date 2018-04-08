@@ -19,17 +19,6 @@ import os
 from sklearn.metrics import confusion_matrix
 
 class Model(UNetBatchNorm):
-    def init_queue(self, tfrecords_filename):
-        with tf.device('/cpu:0'):
-            self.init_data, self.image, self.annotation = read_and_decode(tfrecords_filename,
-                                                                      self.IMAGE_SIZE[0], 
-                                                                      self.IMAGE_SIZE[1],
-                                                                      self.BATCH_SIZE,
-                                                                      self.N_THREADS,
-                                                                      self.NUM_CHANNELS)
-
-        print("Queue initialized")
-
     def init_training_graph(self):
         with tf.name_scope('Evaluation'):
             self.logits = self.conv_layer_f(self.last, self.logits_weight, strides=[1,1,1,1], scope_name="logits/")
@@ -149,9 +138,13 @@ class Model(UNetBatchNorm):
         init_op = tf.group(tf.global_variables_initializer(),
                    tf.local_variables_initializer())
         self.sess.run(init_op)
-        self.sess.run(self.init_data)
+        #self.sess.run(self.init_data)
         early_finish = False
         CheckOrCreate("./confusion_matrix_train")
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(coord=coord)
+
+  
         for step in range(steps):      
             # print "saving images"
             # self.optimizer is replaced by self.training_op for the exponential moving decay
@@ -189,6 +182,8 @@ class Model(UNetBatchNorm):
             os.symlink(best_wgt + ".data-00000-of-00001" ,make_it_seem_new + ".data-00000-of-00001")
             os.symlink(best_wgt + ".index" ,make_it_seem_new + ".index")
             os.symlink(best_wgt + ".meta" ,make_it_seem_new + ".meta")
+        coord.request_stop()
+        coord.join(threads)
         data_res.to_csv(output_csv)
         
 
