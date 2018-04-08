@@ -36,8 +36,10 @@ process fuse_test_images {
     file "description_test_table.csv" into DESC_TEST_TAB
     """
     #!/usr/bin/env python
-    from Data.patch_img import image_test_files, meta_data_test
-
+    from utils.Global_Info import Global_Param
+    image_files, image_test_files, masks_dic = Global_Param(name = '$NAME')
+    
+    from Data.patch_img import meta_data_test
     from os.path import basename
     from pandas import DataFrame
 
