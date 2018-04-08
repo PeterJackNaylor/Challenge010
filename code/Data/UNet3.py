@@ -6,10 +6,10 @@ import numpy as np
 from utils.random_utils import CheckOrCreate
 import pdb
 from patch_img import Contours
-def GenerateGT(original, output):
-    files_GT = os.path.join(original, "GT_*", "*.png")
+def GenerateGT(input, output):
+    files_GT = os.path.join(input, "GT_*", "*.png")
     for gt_path in glob(files_GT):
-        out_path = gt_path.replace(original, output)
+        out_path = gt_path.replace(input, output)
         yield gt_path, out_path
 
 def PutContoursTo2(gt, size=3):
@@ -29,14 +29,14 @@ def save_path(output, rgb, original):
 
 if __name__ == '__main__':
     parser = OptionParser()
-    parser.add_option('--original', dest="original", type="str")
+    parser.add_option('--input', dest="input", type="str")
     parser.add_option('--output', dest="output", type="str")
     (options, args) = parser.parse_args()
     #CheckOrCreate(options.output)
     train = True if options.train == "0" else False
-    for gt_, out_ in GenerateGT(options.original, options.output):
+    for gt_, out_ in GenerateGT(options.input, options.output):
         CheckOrCreate(os.path.dirname(out_))
         result = PutContoursTo2(gt_)
         imsave(out_, result)
 
-    print options.train, options.original, options.norm
+    print options.train, options.input, options.norm
