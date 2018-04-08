@@ -63,7 +63,7 @@ process fuse_images {
     from os.path import basename
     from pandas import DataFrame
     from utils.Global_Info import Global_Param
-    print 'jey'
+    
     image_files, image_test_files, masks_dic = Global_Param(name = '$NAME')
     tab = DataFrame()
     for file in image_files:
