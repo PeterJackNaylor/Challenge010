@@ -160,7 +160,7 @@ process MakeDistData {
     """
 }
 
-HISTO_NORMALIZATION = file("HistogramNormalization.py")
+HISTO_NORMALIZATION = file("HistogramNormalization2.py")
 
 process HistogramNormalization {
 	publishDir "../../intermediary_files/Data/HistoNorm", overwrite:true
@@ -207,8 +207,8 @@ process Contours3 {
     output:
     file "data_unet3"
     """
-    python $UNET3 --input $_ -output data_unet3
-    cp -r $fold1/Slide_* data_unet3/
+    python $UNET3 --input $_ --output data_unet3
+    cp -r $_/Slide_* data_unet3/
     """
 }
 
