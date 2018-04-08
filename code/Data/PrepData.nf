@@ -165,7 +165,7 @@ process HistogramNormalization {
 	input: 
 	file unet_folder from TAB2
 	output:
-	file "data_unet_histonorm" into TAB_HISTO
+	file "data_unet_histonorm" into TAB_HISTO, TAB_HISTO_I3
 	"""
 	python $HISTO_NORMALIZATION --input $unet_folder --output data_unet_histonorm
 	"""
@@ -193,6 +193,20 @@ process HistogramNormalizationTestSet {
     file "data_unet_histonorm_test" into HistogramTestImages
     """
     python $HISTO_NORMALIZATION --input $TEST_IMAGES --output data_unet_histonorm_test
+    """
+}
+
+UNET3 = file("UNet3.py")
+
+process Contours3 {
+    publishDir "../../intermediary_files/Data/UNet3"
+    input:
+    file _ from TAB_HISTO_I3
+    output:
+    file "data_unet3"
+    """
+    python $UNET3 --input $_ -output data_unet3
+    cp -r $fold1/Slide_* data_unet3/
     """
 }
 
