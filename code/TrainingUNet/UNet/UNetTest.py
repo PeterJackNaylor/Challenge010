@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from glob import glob
-from UNet import Model
 import tensorflow as tf
 import numpy as np
 import os

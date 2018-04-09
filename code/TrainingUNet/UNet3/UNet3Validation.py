@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 from glob import glob
-from UNet import Model
+from UNet3 import Model
 import tensorflow as tf
 import numpy as np
 import os
 from os.path import abspath, join, basename
 from utils.random_utils import CheckOrCreate, UNetAugment, UNetAdjust_pixel, sliding_window, color_bin
 from Data.patch_img import Overlay, Overlay_with_pred
-from utils.Postprocessing import PostProcess
 from utils.metrics import AJI_fast, DataScienceBowlMetrics
 from skimage.io import imread, imsave
 from optparse import OptionParser
@@ -15,22 +14,55 @@ import pandas as pd
 from utils.UsefulFunctionsCreateRecord import GatherFiles
 from skimage import img_as_ubyte
 from skimage.measure import label
+from skimage.morphology import dilation
 import pdb
 from sklearn.metrics import f1_score
 from progressbar import ProgressBar
 
-P1_List = range(12, 14)
-P2_list = [0.5]
+P2_list = [0.4, 0.5, 0.6]
+
+
+def MultiClassToBinMap(prob_array, p2 = 0.4):
+    """
+    Based on Neeraj's matlab code for post-processing
+    """
+    x, y, z = prob_array.shape
+    boundary   = prob_array[:,:, 2]
+    nucleus    = prob_array[:,:, 1] > p2
+    background = prob_array[:,:, 0]
+    image_bin = np.zeros(shape=(x, y))
+    conComp = label(nucleus)
+    current = np.zeros(conComp.max())
+    bound_mean = np.mean(boundary[boundary != 0])
+    selem = np.array([[0,1,0],[1,1,1],[0,1,0]])
+
+    for i in range(1, conComp.max()+1):
+        temp_bw = np.zeros(x, y)
+        temp_bw[conComp == i] = 1
+        prev = 0
+        count = 0
+        while current[i-1] < bound_mean and count < 2:
+            prev = current[i-1]
+            temp1 = dilation(temp_bw, selem=selem)
+            count += 1
+            temp_diff = (temp1 - temp_bw).astype('uint8')
+            temp_mult = temp_diff * boundary
+            temp_bw = temp1
+
+        image_bin[temp_bw] = i
+
+
+    return image_bin
 
 class Model_pred(Model):
     def pred(self, img_path): 
-        img = imread(img_path)[:,:,0:4].astype("float")
+        img = imread(img_path)[:,:,0:3].astype("float")
         x, y, z = img.shape
         img -= self.MEAN_NPY
         stepSize = UNetAdjust_pixel(img)
         windowSize = (184 + stepSize[0], 184 + stepSize[1])
         img = UNetAugment(img)
-        result = np.zeros(shape=(1, x, y, 2), dtype='float')
+        result = np.zeros(shape=(1, x, y, self.NUM_LABELS), dtype='float')
         for xb, yb, xe, ye, sub_img in sliding_window(img, stepSize, windowSize):
             Xval = sub_img[np.newaxis, :]
             feed_dict = {self.input_node: Xval,
@@ -48,7 +80,7 @@ def ComputeF1(G, S):
     return f1_score(Gc, Sc)
 
 def ComputeScores(list_rgb, dic_gt, dic_prob, 
-                  p1, p2, keep_memory=False,
+                  p2, keep_memory=False,
                   path_save='./tmp'):
     res_AJI = []
     res_F1 = []
@@ -59,7 +91,7 @@ def ComputeScores(list_rgb, dic_gt, dic_prob,
     res_FP = []
     for path in list_rgb:
         GT = imread(dic_gt[path])
-        S = PostProcess(dic_prob[path][:,:,1], p1, p2)
+        S = MultiClassToBinMap(dic_prob[path], p2)
         res_AJI.append(AJI_fast(GT, S))
         res_F1.append(ComputeF1(GT, S))
         scores, p_s, TP, FN, FP = DataScienceBowlMetrics(GT, S)
@@ -111,8 +143,8 @@ if __name__== "__main__":
     for mod in POSSIBLE_MODELS:
         model = Model_pred("", IMAGE_SIZE=(212, 212),
                                LOG=mod,
-                               NUM_LABELS=2,
-                               NUM_CHANNELS=4,
+                               NUM_LABELS=3,
+                               NUM_CHANNELS=3,
                                N_FEATURES=N_FEATURES,
                                MEAN_FILE=MEAN_FILE)
         number_test = int(mod.split('-')[-1])
@@ -126,15 +158,15 @@ if __name__== "__main__":
         tf.reset_default_graph() # so that it can restore properly the next model
 
     HP_dic = {}
-    for p1 in P1_List:
-        for p2 in P2_list:    
-            HP_dic[(p1, p2)] = ComputeScores(test_img_all, dic_test_gt_all, dic_pred, p1, p2)
+    p1 = 0
+    for p2 in P2_list:    
+        HP_dic[(p1, p2)] = ComputeScores(test_img_all, dic_test_gt_all, dic_pred, p2)
     tab = pd.DataFrame.from_dict(HP_dic, orient='index')
     tab.columns = ['AJI', 'F1', 'DSB']
     tab.to_csv('Hyper_parameter_selection.csv')
     P1, P2 = tab["DSB"].idxmax()
     CheckOrCreate(options.output)
-    aji__, f1__, DSB__, ps__, tp__, fn__, fp__ = ComputeScores(test_img_all, dic_test_gt_all, dic_pred, p1, p2, True, options.output)
+    aji__, f1__, DSB__, ps__, tp__, fn__, fp__ = ComputeScores(test_img_all, dic_test_gt_all, dic_pred, p2, True, options.output)
     ps__, tp__, fn__, fp__ = [np.array(el) for el in [ps__, tp__, fn__, fp__]]
     pathsss = [join(options.output, basename(path).replace('.png', '')) for path in test_img_all]
     df_dic = {'path':pathsss, 'F1':f1__, 'AJI':aji__, 'DSB':DSB__}
