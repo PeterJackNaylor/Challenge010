@@ -12,6 +12,9 @@ from transfer_color_histo import convert_to_3_channel_image
 from sklearn.neighbors import KernelDensity
 import time
 
+def display_image(img_name): 
+    return 
+
 # a reference image needs to be chosen
 #reference_img = '1b518cd2ea84a389c267662840f3d902d0129fab27696215db2488de6d4316c5.png'
 reference_img = '00ae65c1c6631ae6f2be1a449902976e6eb8483bf6b0740d00530220832c6d3e.png'

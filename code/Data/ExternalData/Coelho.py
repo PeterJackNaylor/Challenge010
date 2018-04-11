@@ -18,10 +18,13 @@ parser.add_option('--input', dest="input", type="str")
 TNBC = options.input
 OUT = "."
 
-PNG = glob(TNBC + "/Slide_*/*.png")
+PNG = glob(TNBC + "/data/images/dna-images/gnf/*.png") + glob(TNBC + "/data/images/dna-images/ic100/*.png")
+
+def FindMask(name):
+    return name.replace('images/dna-images', 'preprocessed-data')
 
 for png in PNG:
-    mask = png.replace('/Slide_', '/GT_')
+    mask = FindMask(png)
     name = GRN()
     CheckOrCreate(join(OUT, name))
     CheckOrCreate(join(OUT, name, 'images'))

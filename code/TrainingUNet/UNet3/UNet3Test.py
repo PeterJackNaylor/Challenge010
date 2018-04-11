@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
+from UNet3Validation import Model_pred, MultiClassToBinMap
 from glob import glob
 import tensorflow as tf
 import numpy as np
 import os
 from os.path import join, basename, abspath
 from utils.random_utils import CheckOrCreate, UNetAugment, UNetAdjust_pixel, sliding_window, color_bin
-from utils.Postprocessing import PostProcess
 from utils.EvaluationFile import WriteEvaluation
 from Data.patch_img import Overlay_with_pred
 from skimage.io import imread, imsave
@@ -13,10 +13,11 @@ from optparse import OptionParser
 import pandas as pd
 import os
 from skimage import img_as_ubyte
-from UNetValidation import Model_pred
 from skimage.morphology import remove_small_objects
 import pdb
 from skimage.measure import label
+
+
 def GetHP(csv_path):
     table = pd.read_csv(csv_path, index_col=0)
     ind = table.idxmax()
@@ -47,7 +48,7 @@ if __name__== "__main__":
         model = Model_pred("", BATCH_SIZE=1,
                                IMAGE_SIZE=(212, 212),
                                NUM_LABELS=2,
-                               NUM_CHANNELS=3,
+                               NUM_CHANNELS=4,
                                LOG=LOG,
                                N_FEATURES=N_FEATURES,
                                N_THREADS=50,
@@ -64,7 +65,7 @@ if __name__== "__main__":
         OUT_ID = join(options.output_sample, basename(key).replace('.png', ''))
         CheckOrCreate(OUT_ID)
         dic_prob[key] = np.mean(np.concatenate(dic[key]), axis=0)[:,:,1] 
-        dic_final_pred[key] = PostProcess(dic_prob[key], P1, P2)
+        dic_final_pred[key] = MultiClassToBinMap(dic_prob[key], P2)
         # dic_final_pred[key] = (dic_prob[key] > P2).astype('uint8')
         dic_final_pred[key] = label(dic_final_pred[key])
         dic_final_pred[key] = remove_small_objects(dic_final_pred[key], 32)
