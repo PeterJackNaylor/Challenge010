@@ -72,7 +72,6 @@ def DynamicWatershedAlias(p_img, lamb, p_thresh = 0.5):
     b_img = (p_img > p_thresh) + 0
     Probs_inv = PrepareProb(p_img)
 
-
     Hrecons = HreconstructionErosion(Probs_inv, lamb)
     markers_Probs_inv = find_maxima(Hrecons, mask = b_img)
     markers_Probs_inv = label(markers_Probs_inv)
@@ -80,7 +79,6 @@ def DynamicWatershedAlias(p_img, lamb, p_thresh = 0.5):
     arrange_label = ArrangeLabel(ws_labels)
     wsl = generate_wsl(arrange_label)
     arrange_label[wsl > 0] = 0
-    
 
     return arrange_label
 
