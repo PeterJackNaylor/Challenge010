@@ -73,6 +73,7 @@ class Model(UNetBatchNorm):
             recall.append(recall_tmp)
             precision.append(precision_tmp)
             meanacc.append(meanacc_tmp)
+        
         l = np.mean([el if not math.isnan(el)else 0. for el in l])
         acc = np.mean([el if not math.isnan(el)else 0. for el in acc])
         F1 = np.mean([el if not math.isnan(el) else 0. for el in F1])
