@@ -254,7 +254,7 @@ def augment(image_f, annotation_f, channels=3):
     with tf.name_scope("DataAugmentation"):
         image_f, annotation_f = RandomFlip(image_f, annotation_f, 0.5)    
         image_f, annotation_f = RandomRotate(image_f, annotation_f, 0.2)  
-        image_f, annotation_f = RandomBlur(image_f, annotation_f, -1.2, channels)
+        image_f, annotation_f = RandomBlur(image_f, annotation_f, 0.2, channels)
         image_f, annotation_f = RandomBrightness(image_f, annotation_f, 0.2, channels)
 #        image_f, annotation_f = RandomElasticDeformation(image_f, annotation_f, 0.5, 0.06, 0.12, 1.1)
         return image_f, annotation_f

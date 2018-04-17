@@ -81,6 +81,24 @@ def UNetAugment(img):
     #result = result.astype("uint8")
     return result
 
+def expand_sym_padding(img, size, direction):
+    assert direction in ["Bottom", "Right"]
+    x, y = img.shape[:2]
+    new_shape = np.array(img.shape)
+
+    if direction in ["Bottom"]:
+        new_shape[0] += size
+        res = np.zeros(shape=tuple(new_shape), dtype=img.dtype)
+        res[0:x] = img
+        res[x:(x+size)] = flip_horizontal(img[-size:])
+    else:
+        new_shape[1] += size
+        res = np.zeros(shape=tuple(new_shape), dtype=img.dtype)
+        res[:, 0:y] = img
+        res[:, y:(y+size)] = flip_vertical(img[:, -size:])
+    return res
+
+
 def UNetAdjust(img):
     x, y = img.shape[0:2]
     reste_x = x % 16

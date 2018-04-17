@@ -4,7 +4,7 @@ from optparse import OptionParser
 import skimage.color
 import skimage.io
 from skimage.measure import label, regionprops
-
+from skimage.io import imsave
 #import matplotlib
 #import matplotlib.pyplot as plt
 #from matplotlib.colors import NoNorm
@@ -16,7 +16,7 @@ import shutil
 import skimage.morphology 
 from skimage.morphology import erosion, dilation, watershed
 from skimage.future import graph
-
+from skimage.transform import resize
 import pdb
 import sys
 
@@ -27,6 +27,9 @@ from Data.HistogramNormalization2 import normalize_multi_channel
 from utils.random_utils import CheckOrCreate
 
 from sklearn.ensemble import RandomForestClassifier
+from Data.patch_img import Contours
+from scipy.ndimage.morphology import distance_transform_edt
+
 
 sys.path.append('/Users/twalter/pycharm/Challenge010/code')
 
@@ -47,9 +50,8 @@ NN_VERSIONS = ['UNetDistHistogramTW2', 'UNetHistogramTW2']
 
 class ImageRetriever(object):
 
-    def __init__(self, nn_folder, nn_names=None):
+    def __init__(self, nn_folder, nn_names=None, type_agr='all'):
         self.nn_folder = nn_folder
-
         # the neural networks to combine
         if nn_names is None:
             self.nn_names = filter(lambda x: os.path.isdir(os.path.join(self.nn_folder, x)), os.listdir(self.nn_folder))
@@ -152,8 +154,9 @@ class ImageRetriever(object):
 
 class EdgeClassifier(object):
 
-    def __init__(self, nn_folder, output_folder, model_folder, show_folder, nn_names=None):
+    def __init__(self, nn_folder, output_folder, model_folder, show_folder, nn_names=None, type_agr="all"):
 
+        self.type_agr = type_agr
         # nn_folder is the parent directory containing all nn-prediction subfolders. 
         self.nn_folder = nn_folder
         if not os.path.isdir(self.nn_folder):
@@ -263,6 +266,13 @@ class EdgeClassifier(object):
         res = 1.0 / (1.0 + np.exp((-a) * (temp - dist_shift)))
         res[img==0] = 0
         return res
+    def labeled_mask_distance(self, img, a=0.73240819244540645, dist_shift=1):
+        temp = img.astype(np.float)
+        cont = Contours(img)
+        temp[cont > 0] = 0
+        temp[temp > 0] = 1
+        dist_temp = distance_transform_edt(temp)
+        return self.sigmoid_distance(dist_temp, a, dist_shift)
 
     # extracting the features from the list of features
     # the probability maps are also generated.
@@ -281,7 +291,7 @@ class EdgeClassifier(object):
             ground_truth_label_image = label(ground_truth_image, neighbors=4)
 
             #label_img = label(bin_img, neighbors=4)
-            prob_map = self.make_average_probability_map(image_name, dataset='Train')
+            prob_map = self.make_average_probability_map(image_name, dataset='Train', type_agr=self.type_agr)
 
             X, yvec = self.get_edge_features_for_image(ground_truth_label_image, prob_map)
             if X is None:
@@ -362,7 +372,7 @@ class EdgeClassifier(object):
 
     def apply_classifier_to_image(self, image_name, dataset, show_res=True):
 
-        prob_img = self.make_average_probability_map(image_name, dataset=dataset)
+        prob_img = self.make_average_probability_map(image_name, dataset=dataset, type_agr=self.type_agr)
         ws_labels = self.DynamicWatershedAlias2(prob_img)
         ws_out = ws_labels.copy()
 
@@ -424,15 +434,15 @@ class EdgeClassifier(object):
         if is_training:
             # this is for training
             g = graph.rag_mean_color(gt_label_img, ws_labels, mode='distance', connectivity=1)
-            fp_edges = filter(lambda e: (e[0] != 0) and (e[1] != 0) and (g.get_edge_data(e[0], e[1])['weight'] < sim_thresh_low), g.edges)
-            tp_edges = filter(lambda e: (e[0] != 0) and (e[1] != 0) and (g.get_edge_data(e[0], e[1])['weight'] > sim_thresh_high), g.edges)
+            fp_edges = filter(lambda e: (e[0] != 0) and (e[1] != 0) and (g.get_edge_data(e[0], e[1])['weight'] < sim_thresh_low), g.edges())
+            tp_edges = filter(lambda e: (e[0] != 0) and (e[1] != 0) and (g.get_edge_data(e[0], e[1])['weight'] > sim_thresh_high), g.edges())
             all_edges = tp_edges + fp_edges
-            graph_edges = filter(lambda x: (x[0] != 0) and (x[1] != 0), g.edges)
+            graph_edges = filter(lambda x: (x[0] != 0) and (x[1] != 0), g.edges())
             print '\tkept %i out of %i edges in the training set' % (len(all_edges), len(graph_edges))
         else:
             # in this case we have no ground truth (for prediction)
             g = graph.rag_mean_color(prob_img, ws_labels, mode='distance', connectivity=1)
-            graph_edges = filter(lambda x: (x[0] != 0) and (x[1] != 0), g.edges)
+            graph_edges = filter(lambda x: (x[0] != 0) and (x[1] != 0), g.edges())
             all_edges = graph_edges
 
         if len(all_edges) == 0:
@@ -524,27 +534,52 @@ class EdgeClassifier(object):
         return arrange_label
 
 
-    def make_average_probability_map(self, img_name, dataset='Validation'):
+    def make_average_probability_map(self, img_name, dataset='Validation', type_agr='all'):
+        if type_agr == "all":
+            # read probability maps from dist, unet and un-normalized unet
+            prob_maps = {}
+            for nn_name in self.nn_names:
+                temp = self.retriever.get_prob_image(img_name, nn_name, dataset=dataset)
+                if len(temp.shape) > 2 : 
+                    temp = temp[:,:,0]
 
-        # read probability maps from dist, unet and un-normalized unet
-        prob_maps = {}
-        for nn_name in self.nn_names:
-            temp = self.retriever.get_prob_image(img_name, nn_name, dataset=dataset)
-            if len(temp.shape) > 2 : 
-                temp = temp[:,:,0]
+                # for dist functions, calculate the sigmoid
+                if nn_name.rfind('Dist') > 0:
+                    prob_maps[nn_name] = self.sigmoid_distance(temp)
+                elif nn_name.rfind('rcnn') > -1:
+                    prob_maps[nn_name] = self.labeled_mask_distance(temp) 
+                else:
+                    prob_maps[nn_name] = temp / 255.0
 
-            # for dist functions, calculate the sigmoid
-            if nn_name.rfind('Dist') > 0:
-                prob_maps[nn_name] = self.sigmoid_distance(temp)
-            else:
-                prob_maps[nn_name] = temp / 255.0
+                # output to an image folder
+                temp = 255.0 * prob_maps[nn_name]
+                temp = temp.astype(np.uint8)
+                shape_tmp = temp.shape
 
-            # output to an image folder
-            temp = 255.0 * prob_maps[nn_name]
-            temp = temp.astype(np.uint8)
+            all_maps = np.array([prob_maps[x] for x in self.nn_names])
+            avg_prob = np.mean(all_maps, axis=0)
+        else:
+            for nn_name in self.nn_names:
+                temp = self.retriever.get_prob_image(img_name, nn_name, dataset=dataset)
+                if len(temp.shape) > 2 : 
+                    temp = temp[:,:,0]
+                if nn_name.rfind(type_agr):
+                    continue
+                # for dist functions, calculate the sigmoid
+                if nn_name.rfind('Dist') > 0:
+                    prob_maps[nn_name] = self.sigmoid_distance(temp)
+                elif nn_name.rfind('rcnn') > -1:
+                    prob_maps[nn_name] = self.labeled_mask_distance(temp) 
+                else:
+                    prob_maps[nn_name] = temp / 255.0
 
-        all_maps = np.array([prob_maps[x] for x in self.nn_names])
-        avg_prob = np.mean(all_maps, axis=0)
+                # output to an image folder
+                temp = 255.0 * prob_maps[nn_name]
+                temp = temp.astype(np.uint8)
+                shape_tmp = temp.shape
+
+            all_maps = np.array([prob_maps[x] for x in self.nn_names if x.rfind(type_agr)])
+            avg_prob = np.mean(all_maps, axis=0)
 
         return avg_prob
 
@@ -553,16 +588,18 @@ if __name__ == '__main__':
     parser = OptionParser()
 
     # input folder is the parent directory of all the nn-outputs
-    parser.add_option('--input', dest="input", type="str")
+    parser.add_option('--input', dest="input", type="str", default="/Users/naylorpeter/Desktop/NucleiKaggle/results")
 
     # where to write the watershed output (after the processing)
-    parser.add_option('--output', dest="output", type="str")
+    parser.add_option('--output', dest="output", type="str", default="/Users/naylorpeter/tmp/edge_singleextra/output")
 
     # where to write the watershed output (after the processing)
-    parser.add_option('--modelfolder', dest="modelfolder", type="str")
+    parser.add_option('--modelfolder', dest="modelfolder", type="str", default="/Users/naylorpeter/tmp/edge_singleextra/metaRF")
+
+    parser.add_option('--type_agr', dest='type_agr', type="str", default="all")
 
     # where to write the images with the removed edges
-    parser.add_option('--showfolder', dest="showfolder", type="str")
+    parser.add_option('--showfolder', dest="showfolder", type="str", default="/Users/naylorpeter/tmp/edge_singleextra/EdgeRemoval")
 
     # the names of the outputs to be combined. Should be a comma separated list
     parser.add_option('--nn_names', dest="nn_names", type="str")
