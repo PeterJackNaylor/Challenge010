@@ -21,8 +21,7 @@ if __name__ == '__main__':
         raise ValueError("folder %s does not exist" % input_folder)
     output_folder = options.output
     CheckOrCreate(output_folder)
-
-    for root, dirs, files in os.walk(input_folder):        
+    for root, dirs, files in os.walk(input_folder, followlinks=True):        
         local_output_folder = root.replace(input_folder, output_folder)
         CheckOrCreate(local_output_folder)
         #pdb.set_trace()

@@ -73,25 +73,28 @@ class Model(UNetBatchNorm):
             recall.append(recall_tmp)
             precision.append(precision_tmp)
             meanacc.append(meanacc_tmp)
-        l = np.mean([el if not math.isnan(el)else 0. for el in l])
-        acc = np.mean([el if not math.isnan(el)else 0. for el in acc])
-        F1 = np.mean([el if not math.isnan(el) else 0. for el in F1])
-        recall = np.mean([el if not math.isnan(el) else 0. for el in recall])
-        precision = np.mean([el if not math.isnan(el) else 0. for el in precision])
-        meanacc = np.mean([el if not math.isnan(el) else 0.5 for el in meanacc])
+        if len(list_img) != 0:
+            l = np.mean([el if not math.isnan(el)else 0. for el in l])
+            acc = np.mean([el if not math.isnan(el)else 0. for el in acc])
+            F1 = np.mean([el if not math.isnan(el) else 0. for el in F1])
+            recall = np.mean([el if not math.isnan(el) else 0. for el in recall])
+            precision = np.mean([el if not math.isnan(el) else 0. for el in precision])
+            meanacc = np.mean([el if not math.isnan(el) else 0.5 for el in meanacc])
 
-        summary = tf.Summary()
-        summary.value.add(tag="TestMan/Accuracy", simple_value=acc)
-        summary.value.add(tag="TestMan/Loss", simple_value=l)
-        summary.value.add(tag="TestMan/F1", simple_value=F1)
-        summary.value.add(tag="TestMan/Recall", simple_value=recall)
-        summary.value.add(tag="TestMan/Precision", simple_value=precision)
-        summary.value.add(tag="TestMan/Performance", simple_value=meanacc)
-        self.summary_test_writer.add_summary(summary, step) 
+            summary = tf.Summary()
+            summary.value.add(tag="TestMan/Accuracy", simple_value=acc)
+            summary.value.add(tag="TestMan/Loss", simple_value=l)
+            summary.value.add(tag="TestMan/F1", simple_value=F1)
+            summary.value.add(tag="TestMan/Recall", simple_value=recall)
+            summary.value.add(tag="TestMan/Precision", simple_value=precision)
+            summary.value.add(tag="TestMan/Performance", simple_value=meanacc)
+            self.summary_test_writer.add_summary(summary, step) 
 
-        self.summary_test_writer.add_summary(s, step) 
-        print('  Validation loss: %.1f' % l)
-        print('       Accuracy: %1.f%% \n       acc1: %.1f%% \n       recall: %1.f%% \n       prec: %1.f%% \n       f1 : %1.f%% \n' % (acc * 100, meanacc * 100, recall * 100, precision * 100, F1 * 100))
+            self.summary_test_writer.add_summary(s, step) 
+            print('  Validation loss: %.1f' % l)
+            print('       Accuracy: %1.f%% \n       acc1: %.1f%% \n       recall: %1.f%% \n       prec: %1.f%% \n       f1 : %1.f%% \n' % (acc * 100, meanacc * 100, recall * 100, precision * 100, F1 * 100))
+        else:
+            l, acc, F1 = 0, 0, 0
         self.saver.save(self.sess, self.LOG + '/' + "model.ckpt", step)
         wgt_path = self.LOG + '/' + "model.ckpt-{}".format(step)
         return l, acc, F1, recall, precision, meanacc, wgt_path
@@ -205,8 +208,6 @@ if __name__== "__main__":
     LRSTEP = "10epoch"
     if options.epoch == 1:
         N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE // 5
-    elif options.test > 100:
-        N_TRAIN_SAVE = N_ITER_MAX - 1
     else:
         N_TRAIN_SAVE = samples_per_epoch // BATCH_SIZE
     LOG = options.log

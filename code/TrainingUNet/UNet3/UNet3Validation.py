@@ -37,7 +37,7 @@ def MultiClassToBinMap(prob_array, p2 = 0.4):
     selem = np.array([[0,1,0],[1,1,1],[0,1,0]])
 
     for i in range(1, conComp.max()+1):
-        temp_bw = np.zeros(x, y)
+        temp_bw = np.zeros(shape=(x, y))
         temp_bw[conComp == i] = 1
         prev = 0
         count = 0
@@ -48,8 +48,7 @@ def MultiClassToBinMap(prob_array, p2 = 0.4):
             temp_diff = (temp1 - temp_bw).astype('uint8')
             temp_mult = temp_diff * boundary
             temp_bw = temp1
-
-        image_bin[temp_bw] = i
+        image_bin[temp_bw > 0] = i
 
 
     return image_bin
@@ -79,6 +78,13 @@ def ComputeF1(G, S):
     Sc[Sc > 0] = 1
     return f1_score(Gc, Sc)
 
+from skimage.morphology import dilation
+
+def Label3(GT):
+    inside = label(GT == 1)
+    inside = dilation(inside)
+    return inside
+
 def ComputeScores(list_rgb, dic_gt, dic_prob, 
                   p2, keep_memory=False,
                   path_save='./tmp'):
@@ -91,6 +97,7 @@ def ComputeScores(list_rgb, dic_gt, dic_prob,
     res_FP = []
     for path in list_rgb:
         GT = imread(dic_gt[path])
+        GT = Label3(GT)
         S = MultiClassToBinMap(dic_prob[path], p2)
         res_AJI.append(AJI_fast(GT, S))
         res_F1.append(ComputeF1(GT, S))
@@ -111,10 +118,12 @@ def ComputeScores(list_rgb, dic_gt, dic_prob,
             os.symlink(abspath(path), join(OUT, "rgb.png"))
             os.symlink(abspath(dic_gt[path]), join(OUT, "bin.png"))
             imsave(join(OUT, "colored_bin.png"), color_bin(label(GT)))
-            imsave(join(OUT, "colored_pred.png"), color_bin(S)) 
-            imsave(join(OUT, "output_DNN.png"), img_as_ubyte(dic_prob[path][:,:,1]))
+            imsave(join(OUT, "colored_pred.png"), color_bin(S.astype(int))) 
             imsave(join(OUT, "contours_gt.png"), Overlay(path, dic_gt[path], color_cont).astype('uint8')) 
-            imsave(join(OUT, "contours_pred.png"), Overlay_with_pred(path, S, color_cont).astype('uint8'))
+            imsave(join(OUT, "output_class0.png"), img_as_ubyte(dic_prob[path][:,:,0]))
+            imsave(join(OUT, "output_class1.png"), img_as_ubyte(dic_prob[path][:,:,1]))
+            imsave(join(OUT, "output_class2.png"), img_as_ubyte(dic_prob[path][:,:,2]))
+            # imsave(join(OUT, "contours_pred.png"), Overlay_with_pred(path, S, color_cont).astype('uint8'))
 #            pdb.set_trace()
     if keep_memory:
         return res_AJI, res_F1, res_DSB, res_ps, res_TP, res_FN, res_FP

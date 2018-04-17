@@ -22,8 +22,12 @@ def ComputeScore(list_csv, var_name):
 if __name__ == '__main__':
     hyper_param_test = GetNames() 
     dic = {}
-    for key in hyper_param_test.keys():
-        dic[key] = ComputeScore(hyper_param_test[key], "F1")
+    try:
+        for key in hyper_param_test.keys():
+            dic[key] = ComputeScore(hyper_param_test[key], "F1")
+    except:
+        for key in hyper_param_test.keys():
+            dic[key] = ComputeScore(hyper_param_test[key], "acc")
     n = len(hyper_param_test[key])
     tab = pd.DataFrame.from_dict(dic, orient='index')
     mean = tab[[i for i in range(n)]].mean(axis=1)

@@ -141,6 +141,7 @@ class Model(UNetBatchNorm):
         #self.sess.run(self.init_data)
         early_finish = False
         CheckOrCreate("./confusion_matrix_train")
+        CheckOrCreate("./confusion_matrix_test")
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(coord=coord)
 

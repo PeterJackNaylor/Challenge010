@@ -98,7 +98,6 @@ def expand_sym_padding(img, size, direction):
         res[:, y:(y+size)] = flip_vertical(img[:, -size:])
     return res
 
-
 def UNetAdjust(img):
     x, y = img.shape[0:2]
     reste_x = x % 16
