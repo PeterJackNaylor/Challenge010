@@ -92,6 +92,7 @@ process fuse_test_images {
 
     tab = DataFrame()
     for file in image_test_files:
+        print file
         meta_data_test(file, tab)
     tab.to_csv('description_test_table.csv')
     """
@@ -232,7 +233,7 @@ process HistogramNormalizationDist {
 }
 
 
-TEST_IMAGES = file("../../dataset/stage1_test/")
+TEST_IMAGES = file("../../dataset/withexternal_test/")
 
 process HistogramNormalizationTestSet {
     publishDir "../../intermediary_files/ExtraData/HistoNorm/TestSet", overwrite:true

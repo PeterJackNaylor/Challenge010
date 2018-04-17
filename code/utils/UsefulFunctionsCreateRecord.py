@@ -6,7 +6,7 @@ import numpy as np
 from glob import glob
 from skimage.io import imread
 from utils.ImageTransform import flip_horizontal, flip_vertical, Transf
-from utils.random_utils import sliding_window, UNetAugment
+from utils.random_utils import sliding_window, UNetAugment, expand_sym_padding
 import math
 import scipy.stats as st
 from FileCollector import GatherFiles
@@ -29,6 +29,16 @@ def LoadRGB_GT_QUEUE(imgpath, dic, stepSize, windowSize, unet):
         img = UNetAugment(img)
         labl_aug = label.copy()
         labl_aug = UNetAugment(labl_aug)
+    X_SIZE_MIN = windowSize[0] if not(unet) else windowSize[0] + 92 * 2
+    Y_SIZE_MIN = windowSize[1] if not(unet) else windowSize[1] + 92 * 2
+    while img.shape[0] < X_SIZE_MIN:
+        img = expand_sym_padding(img, 50, "Bottom")
+	labl_aug = expand_sym_padding(labl_aug, 50, "Bottom")
+        label = expand_sym_padding(label, 50, "Bottom")
+    while img.shape[1] < Y_SIZE_MIN:
+        img = expand_sym_padding(img, 50, "Right")
+	labl_aug = expand_sym_padding(labl_aug, 50, "Right")	
+	label = expand_sym_padding(label, 50, "Right")
     for x, y, h, w, sub_lab in sliding_window(label, (stepSize, stepSize), windowSize):
         if unet:
             x_u, y_u = x + 92, y + 92
@@ -46,7 +56,8 @@ def CreateTFRecord(OUTNAME, PATH, FOLD_TEST, SIZE,
 
     tfrecords_filename = OUTNAME
     writer = tf.python_io.TFRecordWriter(tfrecords_filename)
-
+    print PATH, FOLD_TEST, SPLIT
+    pdb.set_trace()
     images, dic_gt = GatherFiles(PATH, FOLD_TEST, SPLIT)
     original_images = []
     n_samples = 0
@@ -63,7 +74,6 @@ def CreateTFRecord(OUTNAME, PATH, FOLD_TEST, SIZE,
               
             img_raw = img.tostring()
             annotation_raw = annotation.tostring()
-              
             example = tf.train.Example(features=tf.train.Features(feature={
                   'height_img': _int64_feature(height_img),
                   'width_img': _int64_feature(width_img),
